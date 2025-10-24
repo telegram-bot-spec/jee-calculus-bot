@@ -74,6 +74,14 @@ class PDFGenerator:
                 - confidence: Confidence percentage
         """
         
+        # DEBUG: Print what we received
+        print("\n" + "="*60)
+        print("DEBUG: Solution data received:")
+        print("="*60)
+        for key, value in solution_data.items():
+            print(f"{key}: {str(value)[:200]}")  # Print first 200 chars of each field
+        print("="*60 + "\n")
+        
         # Create document with professional settings
         doc = Document(documentclass='article')
         
@@ -93,7 +101,7 @@ class PDFGenerator:
         doc.preamble.append(NoEscape(r'\definecolor{blackbook}{RGB}{204,0,102}'))
         doc.preamble.append(NoEscape(r'\definecolor{olympiad}{RGB}{102,51,153}'))
         
-        # Title - FIXED: Add title after document begins
+        # Title - Add title after document begins
         doc.append(NoEscape(r'\begin{center}'))
         doc.append(NoEscape(r'\LARGE\textbf{JEE Advanced Calculus Solution}\\[0.5cm]'))
         doc.append(NoEscape(r'\large Ultimate Calculus Bot\\[0.3cm]'))
@@ -113,14 +121,23 @@ class PDFGenerator:
             doc.append(NoEscape(r'\textcolor{cengage}{\textbf{Systematic Step-by-Step Solution}}'))
             doc.append('\n\n')
             
-            strategy_1 = solution_data.get('strategy_1', {})
+            strategy_1 = solution_data.get('strategy_1', 'No solution available')
+            
+            # Handle different formats safely
             if isinstance(strategy_1, dict):
                 for step, content in strategy_1.items():
-                    doc.append(bold(self.escape_latex(step) + ': '))
-                    doc.append(self.escape_latex(content))
+                    doc.append(bold(self.escape_latex(str(step)) + ': '))
+                    doc.append(self.escape_latex(str(content)))
                     doc.append('\n\n')
+            elif isinstance(strategy_1, str):
+                # Split by newlines and format nicely
+                lines = strategy_1.split('\n')
+                for line in lines:
+                    if line.strip():
+                        doc.append(self.escape_latex(line.strip()))
+                        doc.append('\n')
             else:
-                doc.append(self.escape_latex(strategy_1))
+                doc.append(self.escape_latex(str(strategy_1)))
         
         # Strategy 2: Black Book Shortcuts (Quick Method)
         with doc.create(Section('Strategy 2: Black Book Shortcuts (Quick Method)', 
@@ -128,14 +145,21 @@ class PDFGenerator:
             doc.append(NoEscape(r'\textcolor{blackbook}{\textbf{Pattern Recognition \& Speed}}'))
             doc.append('\n\n')
             
-            strategy_2 = solution_data.get('strategy_2', {})
+            strategy_2 = solution_data.get('strategy_2', 'No solution available')
+            
             if isinstance(strategy_2, dict):
                 for key, content in strategy_2.items():
-                    doc.append(bold(self.escape_latex(key) + ': '))
-                    doc.append(self.escape_latex(content))
+                    doc.append(bold(self.escape_latex(str(key)) + ': '))
+                    doc.append(self.escape_latex(str(content)))
                     doc.append('\n\n')
+            elif isinstance(strategy_2, str):
+                lines = strategy_2.split('\n')
+                for line in lines:
+                    if line.strip():
+                        doc.append(self.escape_latex(line.strip()))
+                        doc.append('\n')
             else:
-                doc.append(self.escape_latex(strategy_2))
+                doc.append(self.escape_latex(str(strategy_2)))
         
         # Strategy 3: Olympiad Tricks (Elegant Insights)
         with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights', 
@@ -143,14 +167,21 @@ class PDFGenerator:
             doc.append(NoEscape(r'\textcolor{olympiad}{\textbf{Elegant Mathematical Approach}}'))
             doc.append('\n\n')
             
-            strategy_3 = solution_data.get('strategy_3', {})
+            strategy_3 = solution_data.get('strategy_3', 'No solution available')
+            
             if isinstance(strategy_3, dict):
                 for key, content in strategy_3.items():
-                    doc.append(bold(self.escape_latex(key) + ': '))
-                    doc.append(self.escape_latex(content))
+                    doc.append(bold(self.escape_latex(str(key)) + ': '))
+                    doc.append(self.escape_latex(str(content)))
                     doc.append('\n\n')
+            elif isinstance(strategy_3, str):
+                lines = strategy_3.split('\n')
+                for line in lines:
+                    if line.strip():
+                        doc.append(self.escape_latex(line.strip()))
+                        doc.append('\n')
             else:
-                doc.append(self.escape_latex(strategy_3))
+                doc.append(self.escape_latex(str(strategy_3)))
         
         # Verification Section with Professional Table
         with doc.create(Section('Verification and Cross-Check')):
@@ -164,21 +195,21 @@ class PDFGenerator:
                 table.add_row(['Strategy', 'Answer'])
                 table.add_hline()
                 table.add_row(['Cengage Method', 
-                              self.escape_latex(verification.get('strategy_1_answer', 'N/A'))])
+                              self.escape_latex(str(verification.get('strategy_1_answer', 'N/A')))])
                 table.add_row(['Black Book', 
-                              self.escape_latex(verification.get('strategy_2_answer', 'N/A'))])
+                              self.escape_latex(str(verification.get('strategy_2_answer', 'N/A')))])
                 table.add_row(['Olympiad', 
-                              self.escape_latex(verification.get('strategy_3_answer', 'N/A'))])
+                              self.escape_latex(str(verification.get('strategy_3_answer', 'N/A')))])
                 table.add_hline()
             
             doc.append('\n\n')
             doc.append(bold('All methods agree: '))
-            agree_status = 'YES (checkmark)' if verification.get('all_agree', False) else 'NO - Review needed (X)'
-            doc.append(self.escape_latex(agree_status))
+            agree_status = 'YES' if verification.get('all_agree', False) else 'NO - Review needed'
+            doc.append(self.escape_latex(str(agree_status)))
             doc.append('\n\n')
             
             doc.append(bold('SymPy Verification: '))
-            doc.append(self.escape_latex(verification.get('sympy_check', 'Verified')))
+            doc.append(self.escape_latex(str(verification.get('sympy_check', 'Verified'))))
         
         # Graphs Section (if any)
         graphs = solution_data.get('graphs', [])
@@ -195,18 +226,26 @@ class PDFGenerator:
         with doc.create(Section('Final Answer')):
             doc.append(NoEscape(r'\begin{center}'))
             doc.append(NoEscape(r'\Large\textbf{'))
-            doc.append(self.escape_latex(solution_data.get('final_answer', 'Answer not available')))
+            final_answer = solution_data.get('final_answer', 'Answer not available')
+            doc.append(self.escape_latex(str(final_answer)))
             doc.append(NoEscape(r'}'))
             doc.append(NoEscape(r'\end{center}'))
             doc.append('\n\n')
             
             doc.append(bold('Confidence: '))
-            doc.append(f"{solution_data.get('confidence', 0)}")
-            doc.append(NoEscape(r'\%'))  # Escape the percent sign
+            confidence_value = solution_data.get('confidence', 0)
+            # Ensure confidence is a number
+            try:
+                confidence_num = float(str(confidence_value).rstrip('%'))
+                doc.append(f"{int(confidence_num)}")
+            except (ValueError, AttributeError):
+                doc.append(str(confidence_value))
+            doc.append(NoEscape(r'\%'))
             doc.append('\n\n')
             
             doc.append(bold('Reasoning: '))
-            doc.append(self.escape_latex(solution_data.get('reasoning', 'Solution verified through multiple methods')))
+            reasoning = solution_data.get('reasoning', 'Solution verified through multiple methods')
+            doc.append(self.escape_latex(str(reasoning)))
         
         # JEE Trap Checks (Critical for JEE Advanced!)
         if 'jee_traps' in solution_data:
