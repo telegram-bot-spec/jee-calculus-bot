@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-latex-extra \
     texlive-fonts-extra \
     texlive-pictures \
+    texlive-xetex \
     lmodern \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /usr/share/doc/* \
