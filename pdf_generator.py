@@ -6,6 +6,7 @@ EXACTLY as discussed in the conversation with earlier Claude
 """
 
 import os
+import subprocess
 from pylatex import Document, Section, Subsection, Math, Figure, Tabular
 from pylatex.utils import NoEscape, bold
 from sympy import latex
@@ -24,6 +25,32 @@ class PDFGenerator:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs("temp_graphs", exist_ok=True)
+    
+    def escape_latex(self, text):
+        """Escape special LaTeX characters to prevent compilation errors"""
+        if not text:
+            return ""
+        
+        text = str(text)  # Ensure it's a string
+        
+        # Characters that need escaping in LaTeX
+        replacements = {
+            '\\': r'\textbackslash{}',
+            '&': r'\&',
+            '%': r'\%',
+            '$': r'\$',
+            '#': r'\#',
+            '_': r'\_',
+            '{': r'\{',
+            '}': r'\}',
+            '~': r'\textasciitilde{}',
+            '^': r'\^{}',
+        }
+        
+        for char, escaped in replacements.items():
+            text = text.replace(char, escaped)
+        
+        return text
     
     def generate(self, solution_data):
         """Wrapper method for create_pdf() - used by bot"""
@@ -66,15 +93,19 @@ class PDFGenerator:
         doc.preamble.append(NoEscape(r'\definecolor{blackbook}{RGB}{204,0,102}'))
         doc.preamble.append(NoEscape(r'\definecolor{olympiad}{RGB}{102,51,153}'))
         
-        # Title
-        doc.preamble.append(NoEscape(r'\title{JEE Advanced Calculus Solution}'))
-        doc.preamble.append(NoEscape(r'\author{Ultimate Calculus Bot}'))
-        doc.preamble.append(NoEscape(r'\date{\today}'))
-        doc.append(NoEscape(r'\maketitle'))
+        # Title - FIXED: Add title after document begins
+        doc.append(NoEscape(r'\begin{center}'))
+        doc.append(NoEscape(r'\LARGE\textbf{JEE Advanced Calculus Solution}\\[0.5cm]'))
+        doc.append(NoEscape(r'\large Ultimate Calculus Bot\\[0.3cm]'))
+        doc.append(NoEscape(r'\today'))
+        doc.append(NoEscape(r'\end{center}'))
+        doc.append(NoEscape(r'\vspace{1cm}'))
         
         # Problem Statement
         with doc.create(Section('Problem Statement')):
-            doc.append(solution_data.get('problem', 'Problem from image'))
+            # Escape special characters in problem text
+            problem_text = self.escape_latex(solution_data.get('problem', 'Problem from image'))
+            doc.append(problem_text)
         
         # Strategy 1: Cengage Method (Textbook Rigor)
         with doc.create(Section('Strategy 1: Cengage Method (Textbook Rigor)', 
@@ -85,11 +116,11 @@ class PDFGenerator:
             strategy_1 = solution_data.get('strategy_1', {})
             if isinstance(strategy_1, dict):
                 for step, content in strategy_1.items():
-                    doc.append(bold(f"{step}: "))
-                    doc.append(str(content))
+                    doc.append(bold(self.escape_latex(step) + ': '))
+                    doc.append(self.escape_latex(content))
                     doc.append('\n\n')
             else:
-                doc.append(str(strategy_1))
+                doc.append(self.escape_latex(strategy_1))
         
         # Strategy 2: Black Book Shortcuts (Quick Method)
         with doc.create(Section('Strategy 2: Black Book Shortcuts (Quick Method)', 
@@ -100,11 +131,11 @@ class PDFGenerator:
             strategy_2 = solution_data.get('strategy_2', {})
             if isinstance(strategy_2, dict):
                 for key, content in strategy_2.items():
-                    doc.append(bold(f"{key}: "))
-                    doc.append(str(content))
+                    doc.append(bold(self.escape_latex(key) + ': '))
+                    doc.append(self.escape_latex(content))
                     doc.append('\n\n')
             else:
-                doc.append(str(strategy_2))
+                doc.append(self.escape_latex(strategy_2))
         
         # Strategy 3: Olympiad Tricks (Elegant Insights)
         with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights', 
@@ -115,14 +146,14 @@ class PDFGenerator:
             strategy_3 = solution_data.get('strategy_3', {})
             if isinstance(strategy_3, dict):
                 for key, content in strategy_3.items():
-                    doc.append(bold(f"{key}: "))
-                    doc.append(str(content))
+                    doc.append(bold(self.escape_latex(key) + ': '))
+                    doc.append(self.escape_latex(content))
                     doc.append('\n\n')
             else:
-                doc.append(str(strategy_3))
+                doc.append(self.escape_latex(strategy_3))
         
         # Verification Section with Professional Table
-        with doc.create(Section('Verification \\& Cross-Check')):
+        with doc.create(Section('Verification and Cross-Check')):
             verification = solution_data.get('verification', {})
             
             doc.append('Comparison of all three strategies:\n\n')
@@ -132,19 +163,22 @@ class PDFGenerator:
                 table.add_hline()
                 table.add_row(['Strategy', 'Answer'])
                 table.add_hline()
-                table.add_row(['Cengage Method', verification.get('strategy_1_answer', 'N/A')])
-                table.add_row(['Black Book', verification.get('strategy_2_answer', 'N/A')])
-                table.add_row(['Olympiad', verification.get('strategy_3_answer', 'N/A')])
+                table.add_row(['Cengage Method', 
+                              self.escape_latex(verification.get('strategy_1_answer', 'N/A'))])
+                table.add_row(['Black Book', 
+                              self.escape_latex(verification.get('strategy_2_answer', 'N/A'))])
+                table.add_row(['Olympiad', 
+                              self.escape_latex(verification.get('strategy_3_answer', 'N/A'))])
                 table.add_hline()
             
             doc.append('\n\n')
             doc.append(bold('All methods agree: '))
-            agree_status = 'YES ✓' if verification.get('all_agree', False) else 'NO - Review needed ✗'
-            doc.append(agree_status)
+            agree_status = 'YES (checkmark)' if verification.get('all_agree', False) else 'NO - Review needed (X)'
+            doc.append(self.escape_latex(agree_status))
             doc.append('\n\n')
             
             doc.append(bold('SymPy Verification: '))
-            doc.append(verification.get('sympy_check', 'Verified'))
+            doc.append(self.escape_latex(verification.get('sympy_check', 'Verified')))
         
         # Graphs Section (if any)
         graphs = solution_data.get('graphs', [])
@@ -161,17 +195,18 @@ class PDFGenerator:
         with doc.create(Section('Final Answer')):
             doc.append(NoEscape(r'\begin{center}'))
             doc.append(NoEscape(r'\Large\textbf{'))
-            doc.append(solution_data.get('final_answer', 'Answer not available'))
+            doc.append(self.escape_latex(solution_data.get('final_answer', 'Answer not available')))
             doc.append(NoEscape(r'}'))
             doc.append(NoEscape(r'\end{center}'))
             doc.append('\n\n')
             
             doc.append(bold('Confidence: '))
-            doc.append(f"{solution_data.get('confidence', 0)}%")
+            doc.append(f"{solution_data.get('confidence', 0)}")
+            doc.append(NoEscape(r'\%'))  # Escape the percent sign
             doc.append('\n\n')
             
             doc.append(bold('Reasoning: '))
-            doc.append(solution_data.get('reasoning', 'Solution verified through multiple methods'))
+            doc.append(self.escape_latex(solution_data.get('reasoning', 'Solution verified through multiple methods')))
         
         # JEE Trap Checks (Critical for JEE Advanced!)
         if 'jee_traps' in solution_data:
@@ -179,22 +214,52 @@ class PDFGenerator:
                 doc.append('Common JEE Advanced traps checked:\n\n')
                 traps = solution_data['jee_traps']
                 for trap, status in traps.items():
-                    doc.append(f"• {trap}: {status}\n")
+                    doc.append(NoEscape(r'\textbullet\ '))
+                    doc.append(self.escape_latex(f"{trap}: {status}"))
+                    doc.append('\n')
         
         # Generate PDF using pdflatex (Springer/Nature standard)
+        pdf_path = os.path.join(self.output_dir, filename)
+        
         try:
-            pdf_path = os.path.join(self.output_dir, filename)
             doc.generate_pdf(pdf_path, compiler='pdflatex', clean_tex=False)
             return f"{pdf_path}.pdf"
+        except subprocess.CalledProcessError as e:
+            # LaTeX compilation failed - print detailed error
+            print(f"\n{'='*60}")
+            print("ERROR: LATEX COMPILATION FAILED!")
+            print(f"{'='*60}")
+            
+            # Save the .tex file for inspection
+            tex_file = f"{pdf_path}.tex"
+            print(f"TEX file location: {tex_file}")
+            
+            # Try to read and print the LaTeX log
+            log_file = f"{pdf_path}.log"
+            if os.path.exists(log_file):
+                print("\nLaTeX Error Log (last 100 lines):")
+                print("-" * 60)
+                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                    for line in lines[-100:]:
+                        print(line.rstrip())
+                print("-" * 60)
+            
+            # Also print the generated .tex file content for debugging
+            if os.path.exists(tex_file):
+                print("\nGenerated LaTeX Content:")
+                print("-" * 60)
+                with open(tex_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                    print(content[:2000])  # Print first 2000 chars
+                    if len(content) > 2000:
+                        print("\n... (truncated)")
+                print("-" * 60)
+            
+            raise Exception(f"PDF compilation failed. Check logs above for LaTeX errors.")
         except Exception as e:
             print(f"Error generating PDF: {e}")
-            # Fallback: Try without cleaning tex files
-            try:
-                doc.generate_pdf(pdf_path, compiler='pdflatex', clean_tex=False)
-                return f"{pdf_path}.pdf"
-            except Exception as e2:
-                print(f"Fallback also failed: {e2}")
-                raise
+            raise
     
     def create_graph(self, function_str, x_range=(-5, 5), filename="graph"):
         """
@@ -295,10 +360,10 @@ if __name__ == "__main__":
         'confidence': 100,
         'reasoning': 'All three methods independently arrived at the same answer, SymPy verification confirms correctness',
         'jee_traps': {
-            'Constant of integration': 'Present (+C) ✓',
-            'Domain restrictions': 'None (e^x defined for all real x) ✓',
-            'Simplification': 'Factored as e^x(x-1) ✓',
-            'Sign errors': 'None detected ✓'
+            'Constant of integration': 'Present (+C)',
+            'Domain restrictions': 'None (e^x defined for all real x)',
+            'Simplification': 'Factored as e^x(x-1)',
+            'Sign errors': 'None detected'
         }
     }
     
