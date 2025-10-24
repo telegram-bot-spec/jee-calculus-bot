@@ -1,17 +1,17 @@
 # Use Python 3.11 slim base image
 FROM python:3.11-slim
 
-# Install LaTeX and dependencies for pdflatex (Springer/Nature standard)
-# This is CRITICAL for perfect PDF character rendering
-RUN apt-get update && apt-get install -y \
+# Install LaTeX packages needed for JEE Advanced calculus PDFs
+# Includes: math symbols, tables, diagrams, professional formatting
+RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-latex-base \
     texlive-fonts-recommended \
-    texlive-latex-extra \
-    texlive-fonts-extra \
-    texlive-science \
-    cm-super \
-    dvipng \
-    && rm -rf /var/lib/apt/lists/*
+    texlive-latex-recommended \
+    texlive-pictures \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/share/doc/* \
+    && rm -rf /usr/share/man/* \
+    && rm -rf /usr/share/locale/*
 
 # Set working directory
 WORKDIR /app
