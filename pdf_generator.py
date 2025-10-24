@@ -83,7 +83,7 @@ class PDFGenerator:
         print("="*60 + "\n")
         
         # Create document with professional settings
-        doc = Document(documentclass='article')
+        doc = Document(documentclass='article', lmodern=False, textcomp=False)
         
         # Add necessary packages for beautiful math and tables
         # ALL PACKAGES MUST BE IN PREAMBLE (before \begin{document})
