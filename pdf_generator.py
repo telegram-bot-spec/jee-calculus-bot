@@ -2,7 +2,7 @@
 PDF Generator for JEE Calculus Bot
 Uses PyLaTeX + pdflatex for publication-quality PDFs (Springer/Nature standard)
 Includes: Math equations, graphs, tables, professional formatting
-EXACTLY as discussed in the conversation with earlier Claude
+FIXED: Removed lastpage and other problematic packages
 """
 
 import os
@@ -82,28 +82,33 @@ class PDFGenerator:
             print(f"{key}: {str(value)[:200]}")  # Print first 200 chars of each field
         print("="*60 + "\n")
         
-        # Create document with professional settings
-        doc = Document(documentclass='article')
+        # Create document with minimal documentclass options
+        # Use geometry='margin=1in' as a parameter instead of adding package later
+        doc = Document(
+            documentclass='article',
+            document_options=['10pt'],
+            geometry_options={'margin': '1in'}
+        )
         
-        # Add necessary packages for beautiful math and tables
-        # ALL PACKAGES MUST BE IN PREAMBLE (before \begin{document})
+        # CRITICAL FIX: Add packages MANUALLY before PyLaTeX adds its defaults
+        # This prevents PyLaTeX from adding packages like 'lastpage' that we don't have
+        doc.packages.clear()  # Clear any auto-added packages
+        
+        # Add ONLY the packages we need and have installed
         doc.preamble.append(NoEscape(r'\usepackage{amsmath}'))
         doc.preamble.append(NoEscape(r'\usepackage{amssymb}'))
         doc.preamble.append(NoEscape(r'\usepackage{amsfonts}'))
         doc.preamble.append(NoEscape(r'\usepackage{graphicx}'))
         doc.preamble.append(NoEscape(r'\usepackage{xcolor}'))
-        doc.preamble.append(NoEscape(r'\usepackage{geometry}'))
-        doc.preamble.append(NoEscape(r'\usepackage{booktabs}'))  # Professional tables
-        doc.preamble.append(NoEscape(r'\usepackage{tikz}'))      # Diagrams
-        doc.preamble.append(NoEscape(r'\geometry{margin=1in}'))
+        doc.preamble.append(NoEscape(r'\usepackage{booktabs}'))
+        doc.preamble.append(NoEscape(r'\usepackage{tikz}'))
         
         # Add custom color definitions for each strategy
         doc.preamble.append(NoEscape(r'\definecolor{cengage}{RGB}{0,102,204}'))
         doc.preamble.append(NoEscape(r'\definecolor{blackbook}{RGB}{204,0,102}'))
         doc.preamble.append(NoEscape(r'\definecolor{olympiad}{RGB}{102,51,153}'))
         
-        # Title Section (AFTER document begins - handled by PyLaTeX automatically)
-        # Create a custom title using NoEscape
+        # Title Section
         doc.append(NoEscape(r'\begin{center}'))
         doc.append(NoEscape(r'\LARGE\textbf{JEE Advanced Calculus Solution}\\[0.5cm]'))
         doc.append(NoEscape(r'\large Ultimate Calculus Bot\\[0.3cm]'))
@@ -113,7 +118,6 @@ class PDFGenerator:
         
         # Problem Statement
         with doc.create(Section('Problem Statement')):
-            # Escape special characters in problem text
             problem_text = self.escape_latex(solution_data.get('problem', 'Problem from image'))
             doc.append(problem_text)
         
@@ -243,7 +247,7 @@ class PDFGenerator:
             doc.append('\n\n')
             
             doc.append(bold('Reasoning: '))
-            reasoning = solution_data.get('reasoning', 'Solution verified through multiple methods')
+            reasoning = solution_data.get('one_sentence_reason', 'Solution verified through multiple methods')
             doc.append(self.escape_latex(str(reasoning)))
         
         # JEE Trap Checks (Critical for JEE Advanced!)
@@ -260,7 +264,8 @@ class PDFGenerator:
         pdf_path = os.path.join(self.output_dir, filename)
         
         try:
-            doc.generate_pdf(pdf_path, compiler='pdflatex', clean_tex=False)
+            # Generate with clean_tex=False to see what's happening
+            doc.generate_pdf(pdf_path, compiler='pdflatex', clean_tex=False, silent=False)
             return f"{pdf_path}.pdf"
         except subprocess.CalledProcessError as e:
             # LaTeX compilation failed - print detailed error
@@ -396,7 +401,7 @@ if __name__ == "__main__":
         },
         'final_answer': 'e^x(x-1) + C',
         'confidence': 100,
-        'reasoning': 'All three methods independently arrived at the same answer, SymPy verification confirms correctness',
+        'one_sentence_reason': 'All three methods independently arrived at the same answer, SymPy verification confirms correctness',
         'jee_traps': {
             'Constant of integration': 'Present (+C)',
             'Domain restrictions': 'None (e^x defined for all real x)',
