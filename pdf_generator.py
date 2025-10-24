@@ -2,7 +2,7 @@
 PDF Generator for JEE Calculus Bot
 Uses PyLaTeX + pdflatex for publication-quality PDFs (Springer/Nature standard)
 Includes: Math equations, graphs, tables, professional formatting
-FIXED: Removed lastpage and other problematic packages
+FIXED: Removed lastpage and other problematic packages + UTF-8 error handling
 """
 
 import os
@@ -52,6 +52,24 @@ class PDFGenerator:
         
         return text
     
+    def safe_read_file(self, filepath, encoding='utf-8'):
+        """Safely read a file with fallback encodings"""
+        encodings = [encoding, 'utf-8', 'latin-1', 'cp1252']
+        
+        for enc in encodings:
+            try:
+                with open(filepath, 'r', encoding=enc, errors='replace') as f:
+                    return f.read()
+            except Exception:
+                continue
+        
+        # Last resort: binary read
+        try:
+            with open(filepath, 'rb') as f:
+                return f.read().decode('utf-8', errors='replace')
+        except Exception as e:
+            return f"Could not read file: {e}"
+    
     def generate(self, solution_data):
         """Wrapper method for create_pdf() - used by bot"""
         from datetime import datetime
@@ -82,191 +100,190 @@ class PDFGenerator:
             print(f"{key}: {str(value)[:200]}")  # Print first 200 chars of each field
         print("="*60 + "\n")
         
-        # Create document with minimal documentclass options
-        # Use geometry='margin=1in' as a parameter instead of adding package later
-        doc = Document(
-            documentclass='article',
-            document_options=['10pt'],
-            geometry_options={'margin': '1in'}
-        )
-        
-        # CRITICAL FIX: Add packages MANUALLY before PyLaTeX adds its defaults
-        # This prevents PyLaTeX from adding packages like 'lastpage' that we don't have
-        doc.packages.clear()  # Clear any auto-added packages
-        
-        # Add ONLY the packages we need and have installed
-        doc.preamble.append(NoEscape(r'\usepackage{amsmath}'))
-        doc.preamble.append(NoEscape(r'\usepackage{amssymb}'))
-        doc.preamble.append(NoEscape(r'\usepackage{amsfonts}'))
-        doc.preamble.append(NoEscape(r'\usepackage{graphicx}'))
-        doc.preamble.append(NoEscape(r'\usepackage{xcolor}'))
-        doc.preamble.append(NoEscape(r'\usepackage{booktabs}'))
-        doc.preamble.append(NoEscape(r'\usepackage{tikz}'))
-        
-        # Add custom color definitions for each strategy
-        doc.preamble.append(NoEscape(r'\definecolor{cengage}{RGB}{0,102,204}'))
-        doc.preamble.append(NoEscape(r'\definecolor{blackbook}{RGB}{204,0,102}'))
-        doc.preamble.append(NoEscape(r'\definecolor{olympiad}{RGB}{102,51,153}'))
-        
-        # Title Section
-        doc.append(NoEscape(r'\begin{center}'))
-        doc.append(NoEscape(r'\LARGE\textbf{JEE Advanced Calculus Solution}\\[0.5cm]'))
-        doc.append(NoEscape(r'\large Ultimate Calculus Bot\\[0.3cm]'))
-        doc.append(NoEscape(r'\today'))
-        doc.append(NoEscape(r'\end{center}'))
-        doc.append(NoEscape(r'\vspace{1cm}'))
-        
-        # Problem Statement
-        with doc.create(Section('Problem Statement')):
-            problem_text = self.escape_latex(solution_data.get('problem', 'Problem from image'))
-            doc.append(problem_text)
-        
-        # Strategy 1: Cengage Method (Textbook Rigor)
-        with doc.create(Section('Strategy 1: Cengage Method (Textbook Rigor)')):
-            doc.append(NoEscape(r'\textcolor{cengage}{\textbf{Systematic Step-by-Step Solution}}'))
-            doc.append('\n\n')
-            
-            strategy_1 = solution_data.get('strategy_1', 'No solution available')
-            
-            # Handle different formats safely
-            if isinstance(strategy_1, dict):
-                for step, content in strategy_1.items():
-                    doc.append(bold(self.escape_latex(str(step)) + ': '))
-                    doc.append(self.escape_latex(str(content)))
-                    doc.append('\n\n')
-            elif isinstance(strategy_1, str):
-                # Split by newlines and format nicely
-                lines = strategy_1.split('\n')
-                for line in lines:
-                    if line.strip():
-                        doc.append(self.escape_latex(line.strip()))
-                        doc.append('\n')
-            else:
-                doc.append(self.escape_latex(str(strategy_1)))
-        
-        # Strategy 2: Black Book Shortcuts (Quick Method)
-        with doc.create(Section('Strategy 2: Black Book Shortcuts (Quick Method)')):
-            doc.append(NoEscape(r'\textcolor{blackbook}{\textbf{Pattern Recognition \& Speed}}'))
-            doc.append('\n\n')
-            
-            strategy_2 = solution_data.get('strategy_2', 'No solution available')
-            
-            if isinstance(strategy_2, dict):
-                for key, content in strategy_2.items():
-                    doc.append(bold(self.escape_latex(str(key)) + ': '))
-                    doc.append(self.escape_latex(str(content)))
-                    doc.append('\n\n')
-            elif isinstance(strategy_2, str):
-                lines = strategy_2.split('\n')
-                for line in lines:
-                    if line.strip():
-                        doc.append(self.escape_latex(line.strip()))
-                        doc.append('\n')
-            else:
-                doc.append(self.escape_latex(str(strategy_2)))
-        
-        # Strategy 3: Olympiad Tricks (Elegant Insights)
-        with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights')):
-            doc.append(NoEscape(r'\textcolor{olympiad}{\textbf{Elegant Mathematical Approach}}'))
-            doc.append('\n\n')
-            
-            strategy_3 = solution_data.get('strategy_3', 'No solution available')
-            
-            if isinstance(strategy_3, dict):
-                for key, content in strategy_3.items():
-                    doc.append(bold(self.escape_latex(str(key)) + ': '))
-                    doc.append(self.escape_latex(str(content)))
-                    doc.append('\n\n')
-            elif isinstance(strategy_3, str):
-                lines = strategy_3.split('\n')
-                for line in lines:
-                    if line.strip():
-                        doc.append(self.escape_latex(line.strip()))
-                        doc.append('\n')
-            else:
-                doc.append(self.escape_latex(str(strategy_3)))
-        
-        # Verification Section with Professional Table
-        with doc.create(Section('Verification and Cross-Check')):
-            verification = solution_data.get('verification', {})
-            
-            doc.append('Comparison of all three strategies:\n\n')
-            
-            # Create comparison table using booktabs (professional style)
-            with doc.create(Tabular('|l|l|')) as table:
-                table.add_hline()
-                table.add_row(['Strategy', 'Answer'])
-                table.add_hline()
-                table.add_row(['Cengage Method', 
-                              self.escape_latex(str(verification.get('strategy_1_answer', 'N/A')))])
-                table.add_row(['Black Book', 
-                              self.escape_latex(str(verification.get('strategy_2_answer', 'N/A')))])
-                table.add_row(['Olympiad', 
-                              self.escape_latex(str(verification.get('strategy_3_answer', 'N/A')))])
-                table.add_hline()
-            
-            doc.append('\n\n')
-            doc.append(bold('All methods agree: '))
-            agree_status = 'YES' if verification.get('all_agree', False) else 'NO - Review needed'
-            doc.append(self.escape_latex(str(agree_status)))
-            doc.append('\n\n')
-            
-            doc.append(bold('SymPy Verification: '))
-            doc.append(self.escape_latex(str(verification.get('sympy_check', 'Verified'))))
-        
-        # Graphs Section (if any)
-        graphs = solution_data.get('graphs', [])
-        if graphs:
-            with doc.create(Section('Graphical Visualization')):
-                doc.append('Visual representation of the function and solution:\n\n')
-                for i, graph_path in enumerate(graphs):
-                    if os.path.exists(graph_path):
-                        with doc.create(Figure(position='h!')) as fig:
-                            fig.add_image(graph_path, width='350px')
-                            fig.add_caption(f'Graph {i+1}: Function visualization')
-        
-        # Final Answer Section (Highlighted)
-        with doc.create(Section('Final Answer')):
-            doc.append(NoEscape(r'\begin{center}'))
-            doc.append(NoEscape(r'\Large\textbf{'))
-            final_answer = solution_data.get('final_answer', 'Answer not available')
-            doc.append(self.escape_latex(str(final_answer)))
-            doc.append(NoEscape(r'}'))
-            doc.append(NoEscape(r'\end{center}'))
-            doc.append('\n\n')
-            
-            doc.append(bold('Confidence: '))
-            confidence_value = solution_data.get('confidence', 0)
-            # Ensure confidence is a number
-            try:
-                confidence_num = float(str(confidence_value).rstrip('%'))
-                doc.append(f"{int(confidence_num)}")
-            except (ValueError, AttributeError):
-                doc.append(str(confidence_value))
-            doc.append(NoEscape(r'\%'))
-            doc.append('\n\n')
-            
-            doc.append(bold('Reasoning: '))
-            reasoning = solution_data.get('one_sentence_reason', 'Solution verified through multiple methods')
-            doc.append(self.escape_latex(str(reasoning)))
-        
-        # JEE Trap Checks (Critical for JEE Advanced!)
-        if 'jee_traps' in solution_data:
-            with doc.create(Section('JEE Trap Verification')):
-                doc.append('Common JEE Advanced traps checked:\n\n')
-                traps = solution_data['jee_traps']
-                for trap, status in traps.items():
-                    doc.append(NoEscape(r'\textbullet\ '))
-                    doc.append(self.escape_latex(f"{trap}: {status}"))
-                    doc.append('\n')
-        
-        # Generate PDF using pdflatex (Springer/Nature standard)
-        pdf_path = os.path.join(self.output_dir, filename)
-        
         try:
+            # Create document with minimal documentclass options
+            doc = Document(
+                documentclass='article',
+                document_options=['10pt'],
+                geometry_options={'margin': '1in'}
+            )
+            
+            # CRITICAL FIX: Add packages MANUALLY before PyLaTeX adds its defaults
+            doc.packages.clear()  # Clear any auto-added packages
+            
+            # Add ONLY the packages we need and have installed
+            doc.preamble.append(NoEscape(r'\usepackage{amsmath}'))
+            doc.preamble.append(NoEscape(r'\usepackage{amssymb}'))
+            doc.preamble.append(NoEscape(r'\usepackage{amsfonts}'))
+            doc.preamble.append(NoEscape(r'\usepackage{graphicx}'))
+            doc.preamble.append(NoEscape(r'\usepackage{xcolor}'))
+            doc.preamble.append(NoEscape(r'\usepackage{booktabs}'))
+            doc.preamble.append(NoEscape(r'\usepackage{tikz}'))
+            
+            # Add custom color definitions for each strategy
+            doc.preamble.append(NoEscape(r'\definecolor{cengage}{RGB}{0,102,204}'))
+            doc.preamble.append(NoEscape(r'\definecolor{blackbook}{RGB}{204,0,102}'))
+            doc.preamble.append(NoEscape(r'\definecolor{olympiad}{RGB}{102,51,153}'))
+            
+            # Title Section
+            doc.append(NoEscape(r'\begin{center}'))
+            doc.append(NoEscape(r'\LARGE\textbf{JEE Advanced Calculus Solution}\\[0.5cm]'))
+            doc.append(NoEscape(r'\large Ultimate Calculus Bot\\[0.3cm]'))
+            doc.append(NoEscape(r'\today'))
+            doc.append(NoEscape(r'\end{center}'))
+            doc.append(NoEscape(r'\vspace{1cm}'))
+            
+            # Problem Statement
+            with doc.create(Section('Problem Statement')):
+                problem_text = self.escape_latex(solution_data.get('problem', 'Problem from image'))
+                doc.append(problem_text)
+            
+            # Strategy 1: Cengage Method (Textbook Rigor)
+            with doc.create(Section('Strategy 1: Cengage Method (Textbook Rigor)')):
+                doc.append(NoEscape(r'\textcolor{cengage}{\textbf{Systematic Step-by-Step Solution}}'))
+                doc.append('\n\n')
+                
+                strategy_1 = solution_data.get('strategy_1', 'No solution available')
+                
+                # Handle different formats safely
+                if isinstance(strategy_1, dict):
+                    for step, content in strategy_1.items():
+                        doc.append(bold(self.escape_latex(str(step)) + ': '))
+                        doc.append(self.escape_latex(str(content)))
+                        doc.append('\n\n')
+                elif isinstance(strategy_1, str):
+                    # Split by newlines and format nicely
+                    lines = strategy_1.split('\n')
+                    for line in lines:
+                        if line.strip():
+                            doc.append(self.escape_latex(line.strip()))
+                            doc.append('\n')
+                else:
+                    doc.append(self.escape_latex(str(strategy_1)))
+            
+            # Strategy 2: Black Book Shortcuts (Quick Method)
+            with doc.create(Section('Strategy 2: Black Book Shortcuts (Quick Method)')):
+                doc.append(NoEscape(r'\textcolor{blackbook}{\textbf{Pattern Recognition \& Speed}}'))
+                doc.append('\n\n')
+                
+                strategy_2 = solution_data.get('strategy_2', 'No solution available')
+                
+                if isinstance(strategy_2, dict):
+                    for key, content in strategy_2.items():
+                        doc.append(bold(self.escape_latex(str(key)) + ': '))
+                        doc.append(self.escape_latex(str(content)))
+                        doc.append('\n\n')
+                elif isinstance(strategy_2, str):
+                    lines = strategy_2.split('\n')
+                    for line in lines:
+                        if line.strip():
+                            doc.append(self.escape_latex(line.strip()))
+                            doc.append('\n')
+                else:
+                    doc.append(self.escape_latex(str(strategy_2)))
+            
+            # Strategy 3: Olympiad Tricks (Elegant Insights)
+            with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights')):
+                doc.append(NoEscape(r'\textcolor{olympiad}{\textbf{Elegant Mathematical Approach}}'))
+                doc.append('\n\n')
+                
+                strategy_3 = solution_data.get('strategy_3', 'No solution available')
+                
+                if isinstance(strategy_3, dict):
+                    for key, content in strategy_3.items():
+                        doc.append(bold(self.escape_latex(str(key)) + ': '))
+                        doc.append(self.escape_latex(str(content)))
+                        doc.append('\n\n')
+                elif isinstance(strategy_3, str):
+                    lines = strategy_3.split('\n')
+                    for line in lines:
+                        if line.strip():
+                            doc.append(self.escape_latex(line.strip()))
+                            doc.append('\n')
+                else:
+                    doc.append(self.escape_latex(str(strategy_3)))
+            
+            # Verification Section with Professional Table
+            with doc.create(Section('Verification and Cross-Check')):
+                verification = solution_data.get('verification', {})
+                
+                doc.append('Comparison of all three strategies:\n\n')
+                
+                # Create comparison table using booktabs (professional style)
+                with doc.create(Tabular('|l|l|')) as table:
+                    table.add_hline()
+                    table.add_row(['Strategy', 'Answer'])
+                    table.add_hline()
+                    table.add_row(['Cengage Method', 
+                                  self.escape_latex(str(verification.get('strategy_1_answer', 'N/A')))])
+                    table.add_row(['Black Book', 
+                                  self.escape_latex(str(verification.get('strategy_2_answer', 'N/A')))])
+                    table.add_row(['Olympiad', 
+                                  self.escape_latex(str(verification.get('strategy_3_answer', 'N/A')))])
+                    table.add_hline()
+                
+                doc.append('\n\n')
+                doc.append(bold('All methods agree: '))
+                agree_status = 'YES' if verification.get('all_agree', False) else 'NO - Review needed'
+                doc.append(self.escape_latex(str(agree_status)))
+                doc.append('\n\n')
+                
+                doc.append(bold('SymPy Verification: '))
+                doc.append(self.escape_latex(str(verification.get('sympy_check', 'Verified'))))
+            
+            # Graphs Section (if any)
+            graphs = solution_data.get('graphs', [])
+            if graphs:
+                with doc.create(Section('Graphical Visualization')):
+                    doc.append('Visual representation of the function and solution:\n\n')
+                    for i, graph_path in enumerate(graphs):
+                        if os.path.exists(graph_path):
+                            with doc.create(Figure(position='h!')) as fig:
+                                fig.add_image(graph_path, width='350px')
+                                fig.add_caption(f'Graph {i+1}: Function visualization')
+            
+            # Final Answer Section (Highlighted)
+            with doc.create(Section('Final Answer')):
+                doc.append(NoEscape(r'\begin{center}'))
+                doc.append(NoEscape(r'\Large\textbf{'))
+                final_answer = solution_data.get('final_answer', 'Answer not available')
+                doc.append(self.escape_latex(str(final_answer)))
+                doc.append(NoEscape(r'}'))
+                doc.append(NoEscape(r'\end{center}'))
+                doc.append('\n\n')
+                
+                doc.append(bold('Confidence: '))
+                confidence_value = solution_data.get('confidence', 0)
+                # Ensure confidence is a number
+                try:
+                    confidence_num = float(str(confidence_value).rstrip('%'))
+                    doc.append(f"{int(confidence_num)}")
+                except (ValueError, AttributeError):
+                    doc.append(str(confidence_value))
+                doc.append(NoEscape(r'\%'))
+                doc.append('\n\n')
+                
+                doc.append(bold('Reasoning: '))
+                reasoning = solution_data.get('one_sentence_reason', 'Solution verified through multiple methods')
+                doc.append(self.escape_latex(str(reasoning)))
+            
+            # JEE Trap Checks (Critical for JEE Advanced!)
+            if 'jee_traps' in solution_data:
+                with doc.create(Section('JEE Trap Verification')):
+                    doc.append('Common JEE Advanced traps checked:\n\n')
+                    traps = solution_data['jee_traps']
+                    for trap, status in traps.items():
+                        doc.append(NoEscape(r'\textbullet\ '))
+                        doc.append(self.escape_latex(f"{trap}: {status}"))
+                        doc.append('\n')
+            
+            # Generate PDF using pdflatex (Springer/Nature standard)
+            pdf_path = os.path.join(self.output_dir, filename)
+            
             # Generate with clean_tex=False to see what's happening
             doc.generate_pdf(pdf_path, compiler='pdflatex', clean_tex=False, silent=False)
             return f"{pdf_path}.pdf"
+            
         except subprocess.CalledProcessError as e:
             # LaTeX compilation failed - print detailed error
             print(f"\n{'='*60}")
@@ -277,31 +294,33 @@ class PDFGenerator:
             tex_file = f"{pdf_path}.tex"
             print(f"TEX file location: {tex_file}")
             
-            # Try to read and print the LaTeX log
+            # Try to read and print the LaTeX log with safe encoding
             log_file = f"{pdf_path}.log"
             if os.path.exists(log_file):
                 print("\nLaTeX Error Log (last 100 lines):")
                 print("-" * 60)
-                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
-                    lines = f.readlines()
-                    for line in lines[-100:]:
-                        print(line.rstrip())
+                log_content = self.safe_read_file(log_file)
+                lines = log_content.split('\n')
+                for line in lines[-100:]:
+                    print(line.rstrip())
                 print("-" * 60)
             
             # Also print the generated .tex file content for debugging
             if os.path.exists(tex_file):
                 print("\nGenerated LaTeX Content:")
                 print("-" * 60)
-                with open(tex_file, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                    print(content[:2000])  # Print first 2000 chars
-                    if len(content) > 2000:
-                        print("\n... (truncated)")
+                tex_content = self.safe_read_file(tex_file)
+                print(tex_content[:2000])  # Print first 2000 chars
+                if len(tex_content) > 2000:
+                    print("\n... (truncated)")
                 print("-" * 60)
             
             raise Exception(f"PDF compilation failed. Check logs above for LaTeX errors.")
+        
         except Exception as e:
             print(f"Error generating PDF: {e}")
+            import traceback
+            traceback.print_exc()
             raise
     
     def create_graph(self, function_str, x_range=(-5, 5), filename="graph"):
@@ -363,53 +382,3 @@ class PDFGenerator:
                 shutil.rmtree("temp_graphs")
         except Exception as e:
             print(f"Cleanup error: {e}")
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Test the PDF generator with sample JEE calculus problem
-    generator = PDFGenerator()
-    
-    sample_data = {
-        'problem': 'Find the integral of x*e^x dx',
-        'strategy_1': {
-            'Step 1': 'Identify as product of polynomial and exponential',
-            'Step 2': 'Use integration by parts: u = x, dv = e^x dx',
-            'Step 3': 'Then du = dx, v = e^x',
-            'Step 4': 'Apply formula: x*e^x - integral(e^x dx)',
-            'Step 5': 'Simplify: x*e^x - e^x + C = e^x(x-1) + C',
-            'Answer': 'e^x(x-1) + C'
-        },
-        'strategy_2': {
-            'Pattern': 'Product of x and e^x',
-            'Shortcut': 'Memorized form for polynomial*exponential',
-            'Time': '5 seconds',
-            'Answer': 'e^x(x-1) + C'
-        },
-        'strategy_3': {
-            'Insight': 'Use Feynman differentiation under integral sign',
-            'Method': 'Consider I(a) = integral(e^(ax)dx), differentiate w.r.t. a',
-            'Elegance': 'Beautiful one-step derivation',
-            'Answer': 'e^x(x-1) + C'
-        },
-        'verification': {
-            'strategy_1_answer': 'e^x(x-1) + C',
-            'strategy_2_answer': 'e^x(x-1) + C',
-            'strategy_3_answer': 'e^x(x-1) + C',
-            'all_agree': True,
-            'sympy_check': 'Verified: derivative matches original integrand'
-        },
-        'final_answer': 'e^x(x-1) + C',
-        'confidence': 100,
-        'one_sentence_reason': 'All three methods independently arrived at the same answer, SymPy verification confirms correctness',
-        'jee_traps': {
-            'Constant of integration': 'Present (+C)',
-            'Domain restrictions': 'None (e^x defined for all real x)',
-            'Simplification': 'Factored as e^x(x-1)',
-            'Sign errors': 'None detected'
-        }
-    }
-    
-    pdf_path = generator.generate(sample_data)
-    print(f"PDF generated: {pdf_path}")
-    print("Test successful!")
