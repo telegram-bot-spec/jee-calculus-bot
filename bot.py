@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from PIL import Image
 import io
+import tempfile
 from calculus_solver import CalculusSolver
 from pdf_generator import PDFGenerator
 from image_enhancer import ImageEnhancer
@@ -109,9 +110,10 @@ Ready to solve! 🚀
             photo = update.message.photo[-1]  # Get highest resolution
             file = await context.bot.get_file(photo.file_id)
             
-            # Download image
-            image_bytes = await file.download_as_bytearray()
-            image = Image.open(io.BytesIO(image_bytes))
+            # Download image to temporary file
+            temp_image = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            await file.download_to_drive(temp_image.name)
+            temp_image.close()
             
             # Stage 1: Enhance image
             await processing_msg.edit_text(
@@ -121,7 +123,7 @@ Ready to solve! 🚀
                 "⏱️ Time remaining: ~5-7 minutes",
                 parse_mode='Markdown'
             )
-            enhanced_image = self.image_enhancer.enhance(image)
+            enhanced_image_path = self.image_enhancer.enhance_image(temp_image.name)
             
             # Stage 2-4: Solve with triple strategy
             await processing_msg.edit_text(
@@ -133,7 +135,7 @@ Ready to solve! 🚀
                 parse_mode='Markdown'
             )
             
-            solution_data = await self.solver.solve(enhanced_image)
+            solution_data = await self.solver.solve(enhanced_image_path)
             
             # Stage 5: Generate PDF
             await processing_msg.edit_text(
@@ -171,6 +173,9 @@ Ready to solve! 🚀
             
             # Clean up
             os.remove(pdf_path)
+            os.remove(temp_image.name)
+            if enhanced_image_path != temp_image.name:
+                os.remove(enhanced_image_path)
             
         except Exception as e:
             logger.error(f"Error processing image: {e}")
