@@ -35,7 +35,7 @@ class ImageEnhancer:
             if max(img.size) > max_size:
                 ratio = max_size / max(img.size)
                 new_size = tuple(int(dim * ratio) for dim in img.size)
-                img = img.resize(new_size, Image.Resampling.LANCZOS)
+                img = img.resize(new_size, Image.LANCZOS)
             
             # Enhancement 1: Increase Contrast by 30%
             contrast_enhancer = ImageEnhance.Contrast(img)
