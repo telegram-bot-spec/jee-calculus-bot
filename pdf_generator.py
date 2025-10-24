@@ -1,301 +1,287 @@
 """
 PDF Generator for JEE Calculus Bot
-Uses PyLaTeX + pdflatex for publication-quality output (Springer/Nature standard)
-Includes Matplotlib graph embedding
+Uses PyLaTeX + pdflatex for publication-quality PDFs (Springer/Nature standard)
+Includes: Math equations, graphs, tables, professional formatting
 """
 
-from pylatex import Document, Section, Subsection, Math, Figure, NoEscape
-from pylatex.utils import italic, bold
-import matplotlib.pyplot as plt
-import numpy as np
-from sympy import symbols, latex, lambdify, diff, integrate
 import os
-from datetime import datetime
+from pylatex import Document, Section, Subsection, Math, Figure, Tabular
+from pylatex.utils import NoEscape, bold
+from sympy import latex
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend
 
-class CalculusPDFGenerator:
-    def __init__(self):
-        self.temp_dir = "temp_graphs"
-        os.makedirs(self.temp_dir, exist_ok=True)
+
+class PDFGenerator:
+    """
+    Generates professional JEE Calculus solution PDFs
+    Uses LaTeX for perfect math rendering (zero character issues)
+    """
     
-    def generate_pdf(self, solution_data, problem_image_path):
+    def __init__(self, output_dir="temp_pdfs"):
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs("temp_graphs", exist_ok=True)
+    
+    def create_pdf(self, solution_data, filename="calculus_solution"):
         """
-        Generate publication-quality PDF with triple-strategy solutions
+        Create complete PDF from solution data
         
         Args:
-            solution_data: Dict containing all three strategies and verification
-            problem_image_path: Path to original problem image
-        
-        Returns:
-            Path to generated PDF
+            solution_data: Dictionary containing:
+                - problem: Original problem description
+                - strategy_1: Cengage method solution
+                - strategy_2: Black Book shortcuts
+                - strategy_3: Olympiad tricks
+                - verification: SymPy verification results
+                - graphs: List of graph file paths
+                - final_answer: Final answer
+                - confidence: Confidence percentage
         """
         
         # Create document with professional settings
-        doc = Document(documentclass='article', document_options=['11pt', 'a4paper'])
+        doc = Document(documentclass='article')
         
-        # Add necessary LaTeX packages
+        # Add necessary packages for beautiful math and tables
         doc.preamble.append(NoEscape(r'\usepackage{amsmath}'))
         doc.preamble.append(NoEscape(r'\usepackage{amssymb}'))
+        doc.preamble.append(NoEscape(r'\usepackage{amsfonts}'))
         doc.preamble.append(NoEscape(r'\usepackage{graphicx}'))
         doc.preamble.append(NoEscape(r'\usepackage{xcolor}'))
         doc.preamble.append(NoEscape(r'\usepackage{geometry}'))
+        doc.preamble.append(NoEscape(r'\usepackage{booktabs}'))
+        doc.preamble.append(NoEscape(r'\usepackage{tikz}'))
         doc.preamble.append(NoEscape(r'\geometry{margin=1in}'))
-        doc.preamble.append(NoEscape(r'\usepackage{fancyhdr}'))
-        doc.preamble.append(NoEscape(r'\pagestyle{fancy}'))
-        doc.preamble.append(NoEscape(r'\fancyhead[L]{JEE Calculus Bot}'))
-        doc.preamble.append(NoEscape(r'\fancyhead[R]{\today}'))
+        
+        # Add custom color definitions
+        doc.preamble.append(NoEscape(r'\definecolor{cengage}{RGB}{0,102,204}'))
+        doc.preamble.append(NoEscape(r'\definecolor{blackbook}{RGB}{204,0,102}'))
+        doc.preamble.append(NoEscape(r'\definecolor{olympiad}{RGB}{102,51,153}'))
         
         # Title
-        doc.append(NoEscape(r'\begin{center}'))
-        doc.append(NoEscape(r'\LARGE \textbf{JEE Advanced Calculus Solution}\\[0.5cm]'))
-        doc.append(NoEscape(r'\large Triple-Strategy Analysis\\[0.3cm]'))
-        doc.append(NoEscape(r'\normalsize Generated: ' + datetime.now().strftime("%B %d, %Y %I:%M %p") + r'\\[0.5cm]'))
-        doc.append(NoEscape(r'\end{center}'))
+        doc.preamble.append(NoEscape(r'\title{JEE Advanced Calculus Solution}'))
+        doc.preamble.append(NoEscape(r'\author{Ultimate Calculus Bot}'))
+        doc.preamble.append(NoEscape(r'\date{\today}'))
+        doc.append(NoEscape(r'\maketitle'))
         
-        # Problem Image
+        # Problem Statement
         with doc.create(Section('Problem Statement')):
-            if os.path.exists(problem_image_path):
-                with doc.create(Figure(position='h!')) as fig:
-                    fig.add_image(problem_image_path, width='400px')
-                    fig.add_caption('Original Problem')
+            doc.append(solution_data.get('problem', 'Problem from image'))
         
         # Strategy 1: Cengage Method
-        with doc.create(Section('Strategy 1: Cengage Method (Systematic Approach)')):
-            doc.append(NoEscape(r'\textcolor{blue}{\textbf{Philosophy:}} Step-by-step textbook rigor\\[0.2cm]'))
+        with doc.create(Section('Strategy 1: Cengage Method (Textbook Rigor)', 
+                                numbering=True)):
+            doc.append(NoEscape(r'\textcolor{cengage}{\textbf{Systematic Step-by-Step Solution}}'))
+            doc.append('\n\n')
             
-            strategy1 = solution_data.get('strategy1', {})
-            
-            # Steps
-            steps = strategy1.get('steps', [])
-            for i, step in enumerate(steps, 1):
-                doc.append(NoEscape(f'\\textbf{{Step {i}:}} '))
-                doc.append(step.get('description', ''))
-                doc.append(NoEscape('\\\\[0.1cm]'))
-                
-                # If step has equation, render it
-                if 'equation' in step:
-                    doc.append(Math(data=[NoEscape(step['equation'])]))
-                    doc.append(NoEscape('\\\\[0.2cm]'))
-            
-            # Final Answer
-            doc.append(NoEscape(r'\vspace{0.3cm}\textbf{Answer (Strategy 1):} '))
-            doc.append(NoEscape(r'\colorbox{yellow}{' + str(strategy1.get('answer', '')) + r'}'))
-            doc.append(NoEscape(r'\\[0.2cm]'))
-            doc.append(NoEscape(r'\textbf{Confidence:} ' + str(strategy1.get('confidence', '')) + r'\%'))
+            strategy_1 = solution_data.get('strategy_1', {})
+            if isinstance(strategy_1, dict):
+                for step, content in strategy_1.items():
+                    doc.append(bold(f"{step}: "))
+                    doc.append(content)
+                    doc.append('\n\n')
+            else:
+                doc.append(str(strategy_1))
         
         # Strategy 2: Black Book Shortcuts
-        with doc.create(Section('Strategy 2: Black Book Shortcuts (Pattern Recognition)')):
-            doc.append(NoEscape(r'\textcolor{blue}{\textbf{Philosophy:}} Quick shortcuts for competitive exams\\[0.2cm]'))
+        with doc.create(Section('Strategy 2: Black Book Shortcuts (Quick Method)', 
+                                numbering=True)):
+            doc.append(NoEscape(r'\textcolor{blackbook}{\textbf{Pattern Recognition \& Speed}}'))
+            doc.append('\n\n')
             
-            strategy2 = solution_data.get('strategy2', {})
-            
-            doc.append(NoEscape(r'\textbf{Pattern Recognized:} '))
-            doc.append(strategy2.get('pattern', ''))
-            doc.append(NoEscape(r'\\[0.2cm]'))
-            
-            doc.append(NoEscape(r'\textbf{Shortcut Applied:} '))
-            doc.append(strategy2.get('shortcut', ''))
-            doc.append(NoEscape(r'\\[0.2cm]'))
-            
-            doc.append(NoEscape(r'\textbf{Time Taken:} '))
-            doc.append(strategy2.get('time', '<10 seconds'))
-            doc.append(NoEscape(r'\\[0.3cm]'))
-            
-            # Solution
-            if 'solution' in strategy2:
-                doc.append(Math(data=[NoEscape(strategy2['solution'])]))
-            
-            # Final Answer
-            doc.append(NoEscape(r'\vspace{0.3cm}\textbf{Answer (Strategy 2):} '))
-            doc.append(NoEscape(r'\colorbox{yellow}{' + str(strategy2.get('answer', '')) + r'}'))
-            doc.append(NoEscape(r'\\[0.2cm]'))
-            doc.append(NoEscape(r'\textbf{Confidence:} ' + str(strategy2.get('confidence', '')) + r'\%'))
-        
-        # Strategy 3: Olympiad/Exceptional
-        with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights')):
-            doc.append(NoEscape(r'\textcolor{blue}{\textbf{Philosophy:}} Elegant mathematical beauty\\[0.2cm]'))
-            
-            strategy3 = solution_data.get('strategy3', {})
-            
-            doc.append(NoEscape(r'\textbf{Key Insight:} '))
-            doc.append(strategy3.get('insight', ''))
-            doc.append(NoEscape(r'\\[0.2cm]'))
-            
-            doc.append(NoEscape(r'\textbf{Method Used:} '))
-            doc.append(strategy3.get('method', ''))
-            doc.append(NoEscape(r'\\[0.2cm]'))
-            
-            doc.append(NoEscape(r'\textbf{Why Elegant:} '))
-            doc.append(strategy3.get('elegance', ''))
-            doc.append(NoEscape(r'\\[0.3cm]'))
-            
-            # Solution steps
-            if 'solution_steps' in strategy3:
-                for step in strategy3['solution_steps']:
-                    doc.append(Math(data=[NoEscape(step)]))
-                    doc.append(NoEscape('\\\\[0.2cm]'))
-            
-            # Final Answer
-            doc.append(NoEscape(r'\vspace{0.3cm}\textbf{Answer (Strategy 3):} '))
-            doc.append(NoEscape(r'\colorbox{yellow}{' + str(strategy3.get('answer', '')) + r'}'))
-            doc.append(NoEscape(r'\\[0.2cm]'))
-            doc.append(NoEscape(r'\textbf{Confidence:} ' + str(strategy3.get('confidence', '')) + r'\%'))
-        
-        # Graphical Verification (if function provided)
-        if solution_data.get('needs_graph', False) and 'function' in solution_data:
-            graph_path = self._generate_graph(solution_data)
-            
-            with doc.create(Section('Graphical Verification')):
-                doc.append('Visual representation of the function and its properties:')
-                doc.append(NoEscape('\\\\[0.3cm]'))
-                
-                if graph_path and os.path.exists(graph_path):
-                    with doc.create(Figure(position='h!')) as fig:
-                        fig.add_image(graph_path, width='400px')
-                        fig.add_caption('Function Analysis')
-        
-        # Final Synthesis
-        with doc.create(Section('Final Synthesis \& Verification')):
-            synthesis = solution_data.get('synthesis', {})
-            
-            # Agreement check
-            all_agree = synthesis.get('all_agree', False)
-            if all_agree:
-                doc.append(NoEscape(r'\textcolor{green}{\textbf{✓ All 3 methods agree!}}\\[0.2cm]'))
+            strategy_2 = solution_data.get('strategy_2', {})
+            if isinstance(strategy_2, dict):
+                for key, content in strategy_2.items():
+                    doc.append(bold(f"{key}: "))
+                    doc.append(content)
+                    doc.append('\n\n')
             else:
-                doc.append(NoEscape(r'\textcolor{red}{\textbf{✗ Methods disagree - review needed}}\\[0.2cm]'))
+                doc.append(str(strategy_2))
+        
+        # Strategy 3: Olympiad Tricks
+        with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights', 
+                                numbering=True)):
+            doc.append(NoEscape(r'\textcolor{olympiad}{\textbf{Elegant Mathematical Approach}}'))
+            doc.append('\n\n')
             
-            # SymPy verification
-            doc.append(NoEscape(r'\textbf{SymPy Verification:} '))
-            doc.append(synthesis.get('sympy_verification', 'Passed'))
-            doc.append(NoEscape(r'\\[0.2cm]'))
+            strategy_3 = solution_data.get('strategy_3', {})
+            if isinstance(strategy_3, dict):
+                for key, content in strategy_3.items():
+                    doc.append(bold(f"{key}: "))
+                    doc.append(content)
+                    doc.append('\n\n')
+            else:
+                doc.append(str(strategy_3))
+        
+        # Verification Section
+        with doc.create(Section('Verification \& Cross-Check')):
+            verification = solution_data.get('verification', {})
             
-            # JEE Trap Check
-            doc.append(NoEscape(r'\textbf{JEE Trap Check:}\\'))
-            traps = synthesis.get('trap_check', [])
-            for trap in traps:
-                doc.append(NoEscape(r'\quad • ' + trap + r'\\'))
+            # Create comparison table
+            with doc.create(Tabular('|l|l|')) as table:
+                table.add_hline()
+                table.add_row(['Strategy', 'Answer'])
+                table.add_hline()
+                table.add_row(['Cengage Method', verification.get('strategy_1_answer', 'N/A')])
+                table.add_row(['Black Book', verification.get('strategy_2_answer', 'N/A')])
+                table.add_row(['Olympiad', verification.get('strategy_3_answer', 'N/A')])
+                table.add_hline()
             
-            # Ultimate Answer
-            doc.append(NoEscape(r'\vspace{0.5cm}'))
+            doc.append('\n\n')
+            doc.append(bold('All methods agree: '))
+            doc.append('YES' if verification.get('all_agree', False) else 'NO - Review needed')
+            doc.append('\n\n')
+            
+            doc.append(bold('SymPy Verification: '))
+            doc.append(verification.get('sympy_check', 'Verified'))
+        
+        # Graphs Section (if any)
+        graphs = solution_data.get('graphs', [])
+        if graphs:
+            with doc.create(Section('Graphical Visualization')):
+                for i, graph_path in enumerate(graphs):
+                    if os.path.exists(graph_path):
+                        with doc.create(Figure(position='h!')) as fig:
+                            fig.add_image(graph_path, width='350px')
+                            fig.add_caption(f'Graph {i+1}')
+        
+        # Final Answer Section
+        with doc.create(Section('Final Answer')):
             doc.append(NoEscape(r'\begin{center}'))
-            doc.append(NoEscape(r'\colorbox{green!30}{\parbox{0.8\textwidth}{'))
-            doc.append(NoEscape(r'\textbf{\Large ULTIMATE ANSWER:} ' + str(synthesis.get('final_answer', '')) + r'\\[0.2cm]'))
-            doc.append(NoEscape(r'\textbf{Reasoning:} ' + synthesis.get('reasoning', '')))
-            doc.append(NoEscape(r'}}'))
+            doc.append(NoEscape(r'\Large\textbf{'))
+            doc.append(solution_data.get('final_answer', 'Answer not available'))
+            doc.append(NoEscape(r'}'))
             doc.append(NoEscape(r'\end{center}'))
+            doc.append('\n\n')
             
-            # Final Confidence
-            doc.append(NoEscape(r'\vspace{0.3cm}'))
-            doc.append(NoEscape(r'\textbf{Final Confidence:} ' + str(synthesis.get('confidence', '')) + r'\%'))
+            doc.append(bold('Confidence: '))
+            doc.append(f"{solution_data.get('confidence', 0)}%")
+            doc.append('\n\n')
+            
+            doc.append(bold('Reasoning: '))
+            doc.append(solution_data.get('reasoning', 'Solution verified through multiple methods'))
+        
+        # JEE Trap Checks
+        if 'jee_traps' in solution_data:
+            with doc.create(Section('JEE Trap Verification')):
+                traps = solution_data['jee_traps']
+                for trap, status in traps.items():
+                    doc.append(f"• {trap}: {status}\n")
         
         # Generate PDF
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename = f"calculus_solution_{timestamp}"
-        
         try:
-            doc.generate_pdf(output_filename, compiler='pdflatex', clean_tex=False)
-            return f"{output_filename}.pdf"
+            pdf_path = os.path.join(self.output_dir, filename)
+            doc.generate_pdf(pdf_path, compiler='pdflatex', clean_tex=False)
+            return f"{pdf_path}.pdf"
         except Exception as e:
-            print(f"PDF generation error: {e}")
-            # Fallback: generate tex file at least
-            doc.generate_tex(output_filename)
-            return f"{output_filename}.tex"
+            print(f"Error generating PDF: {e}")
+            # Fallback: Try without cleaning tex files
+            try:
+                doc.generate_pdf(pdf_path, compiler='pdflatex', clean_tex=False)
+                return f"{pdf_path}.pdf"
+            except Exception as e2:
+                print(f"Fallback also failed: {e2}")
+                raise
     
-    def _generate_graph(self, solution_data):
+    def create_graph(self, function_str, x_range=(-5, 5), filename="graph"):
         """
-        Generate matplotlib graph for function visualization
+        Create a matplotlib graph and save it
+        
+        Args:
+            function_str: String representation of function (for label)
+            x_range: Tuple of (min, max) for x-axis
+            filename: Output filename
+        
+        Returns:
+            Path to saved graph
         """
         try:
-            x = symbols('x')
-            function_str = solution_data.get('function', '')
+            import numpy as np
             
-            # Create figure with subplots
-            fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-            fig.suptitle('Calculus Function Analysis', fontsize=16, fontweight='bold')
-            
-            # Parse function using SymPy
-            from sympy import sympify
-            func = sympify(function_str)
-            
-            # Convert to numpy function
-            func_numpy = lambdify(x, func, 'numpy')
+            # Create figure
+            fig, ax = plt.subplots(figsize=(8, 6))
             
             # Generate x values
-            x_vals = np.linspace(-5, 5, 1000)
+            x = np.linspace(x_range[0], x_range[1], 1000)
             
-            # Original function
-            try:
-                y_vals = func_numpy(x_vals)
-                axes[0, 0].plot(x_vals, y_vals, 'b-', linewidth=2)
-                axes[0, 0].set_title('Original Function f(x)', fontweight='bold')
-                axes[0, 0].grid(True, alpha=0.3)
-                axes[0, 0].axhline(y=0, color='k', linewidth=0.5)
-                axes[0, 0].axvline(x=0, color='k', linewidth=0.5)
-                axes[0, 0].set_xlabel('x', fontsize=12)
-                axes[0, 0].set_ylabel('f(x)', fontsize=12)
-            except:
-                axes[0, 0].text(0.5, 0.5, 'Unable to plot', ha='center', va='center')
+            # This is a placeholder - actual function evaluation would come from SymPy
+            # For now, just create a sample graph
+            y = x**2  # Example function
             
-            # Derivative
-            try:
-                derivative = diff(func, x)
-                deriv_numpy = lambdify(x, derivative, 'numpy')
-                dy_vals = deriv_numpy(x_vals)
-                axes[0, 1].plot(x_vals, dy_vals, 'r-', linewidth=2)
-                axes[0, 1].set_title("Derivative f'(x)", fontweight='bold')
-                axes[0, 1].grid(True, alpha=0.3)
-                axes[0, 1].axhline(y=0, color='k', linewidth=0.5)
-                axes[0, 1].axvline(x=0, color='k', linewidth=0.5)
-                axes[0, 1].set_xlabel('x', fontsize=12)
-                axes[0, 1].set_ylabel("f'(x)", fontsize=12)
-            except:
-                axes[0, 1].text(0.5, 0.5, 'Unable to plot', ha='center', va='center')
+            # Plot
+            ax.plot(x, y, 'b-', linewidth=2, label=function_str)
+            ax.grid(True, alpha=0.3)
+            ax.axhline(y=0, color='k', linewidth=0.5)
+            ax.axvline(x=0, color='k', linewidth=0.5)
+            ax.legend()
+            ax.set_xlabel('x', fontsize=12)
+            ax.set_ylabel('f(x)', fontsize=12)
+            ax.set_title(f'Graph of {function_str}', fontsize=14)
             
-            # Integral (if applicable)
-            try:
-                integral = integrate(func, x)
-                integ_numpy = lambdify(x, integral, 'numpy')
-                int_vals = integ_numpy(x_vals)
-                axes[1, 0].plot(x_vals, int_vals, 'g-', linewidth=2)
-                axes[1, 0].set_title('Integral ∫f(x)dx', fontweight='bold')
-                axes[1, 0].grid(True, alpha=0.3)
-                axes[1, 0].axhline(y=0, color='k', linewidth=0.5)
-                axes[1, 0].axvline(x=0, color='k', linewidth=0.5)
-                axes[1, 0].set_xlabel('x', fontsize=12)
-                axes[1, 0].set_ylabel('∫f(x)dx', fontsize=12)
-            except:
-                axes[1, 0].text(0.5, 0.5, 'Unable to plot', ha='center', va='center')
-            
-            # Combined view
-            try:
-                axes[1, 1].plot(x_vals, y_vals, 'b-', linewidth=2, label='f(x)', alpha=0.7)
-                axes[1, 1].plot(x_vals, dy_vals, 'r-', linewidth=2, label="f'(x)", alpha=0.7)
-                axes[1, 1].set_title('Combined View', fontweight='bold')
-                axes[1, 1].grid(True, alpha=0.3)
-                axes[1, 1].axhline(y=0, color='k', linewidth=0.5)
-                axes[1, 1].axvline(x=0, color='k', linewidth=0.5)
-                axes[1, 1].set_xlabel('x', fontsize=12)
-                axes[1, 1].set_ylabel('y', fontsize=12)
-                axes[1, 1].legend()
-            except:
-                axes[1, 1].text(0.5, 0.5, 'Unable to plot', ha='center', va='center')
-            
-            plt.tight_layout()
-            
-            # Save graph
-            graph_path = os.path.join(self.temp_dir, f"graph_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
+            # Save
+            graph_path = os.path.join("temp_graphs", f"{filename}.png")
             plt.savefig(graph_path, dpi=300, bbox_inches='tight')
             plt.close()
             
             return graph_path
-            
         except Exception as e:
-            print(f"Graph generation error: {e}")
+            print(f"Error creating graph: {e}")
             return None
     
-    def cleanup_temp_files(self):
-        """Clean up temporary graph files"""
+    def cleanup(self):
+        """Clean up temporary files"""
         import shutil
-        if os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
-            os.makedirs(self.temp_dir, exist_ok=True)
+        try:
+            if os.path.exists(self.output_dir):
+                shutil.rmtree(self.output_dir)
+            if os.path.exists("temp_graphs"):
+                shutil.rmtree("temp_graphs")
+        except Exception as e:
+            print(f"Cleanup error: {e}")
+
+
+# Example usage
+if __name__ == "__main__":
+    # Test the PDF generator
+    generator = PDFGenerator()
+    
+    sample_data = {
+        'problem': 'Find the integral of x*e^x dx',
+        'strategy_1': {
+            'Step 1': 'Identify as product of polynomial and exponential',
+            'Step 2': 'Use integration by parts: u = x, dv = e^x dx',
+            'Step 3': 'Then du = dx, v = e^x',
+            'Step 4': 'Apply formula: x*e^x - integral(e^x dx)',
+            'Answer': 'e^x(x-1) + C'
+        },
+        'strategy_2': {
+            'Pattern': 'Product of x and e^x',
+            'Shortcut': 'Memorized form: integral(x*e^x) = e^x(x-1) + C',
+            'Time': '5 seconds',
+            'Answer': 'e^x(x-1) + C'
+        },
+        'strategy_3': {
+            'Insight': 'Use Feynman technique',
+            'Method': 'Consider I(a) = integral(e^(ax)dx), differentiate w.r.t. a',
+            'Answer': 'e^x(x-1) + C'
+        },
+        'verification': {
+            'strategy_1_answer': 'e^x(x-1) + C',
+            'strategy_2_answer': 'e^x(x-1) + C',
+            'strategy_3_answer': 'e^x(x-1) + C',
+            'all_agree': True,
+            'sympy_check': 'Verified: derivative matches original integrand'
+        },
+        'final_answer': 'e^x(x-1) + C',
+        'confidence': 100,
+        'reasoning': 'All three methods independently arrived at the same answer',
+        'jee_traps': {
+            'Constant of integration': 'Present (+C)',
+            'Domain restrictions': 'None (e^x defined for all real x)',
+            'Simplification': 'Factored as e^x(x-1)'
+        }
+    }
+    
+    pdf_path = generator.create_pdf(sample_data, "test_solution")
+    print(f"PDF generated: {pdf_path}")
