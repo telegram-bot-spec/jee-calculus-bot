@@ -24,7 +24,11 @@ class PDFGenerator:
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs("temp_graphs", exist_ok=True)
     
-    def create_pdf(self, solution_data, filename="calculus_solution"):
+    def generate(self, solution_data):
+    """Wrapper method for create_pdf() - used by bot"""
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return self.create_pdf(solution_data, f"solution_{timestamp}")
         """
         Create complete PDF from solution data
         
