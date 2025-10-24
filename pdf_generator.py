@@ -1,131 +1,135 @@
 """
 PDF Generator for JEE Calculus Bot
-Uses PyLaTeX + pdflatex for publication-quality PDFs (Springer/Nature standard)
-Includes: Math equations, graphs, tables, professional formatting
-FIXED: Removed lastpage and other problematic packages + UTF-8 error handling
+FINAL VERSION with all UTF-8 and LaTeX fixes
 """
 
 import os
 import subprocess
-from pylatex import Document, Section, Subsection, Math, Figure, Tabular
+from pylatex import Document, Section, Figure, Tabular
 from pylatex.utils import NoEscape, bold
-from sympy import latex
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
+matplotlib.use('Agg')
 
 
 class PDFGenerator:
-    """
-    Generates professional JEE Calculus solution PDFs
-    Uses LaTeX for perfect math rendering (zero character issues)
-    """
-    
     def __init__(self, output_dir="temp_pdfs"):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs("temp_graphs", exist_ok=True)
     
     def escape_latex(self, text):
-        """Escape special LaTeX characters to prevent compilation errors"""
+        """Escape special LaTeX characters + handle Unicode math symbols"""
         if not text:
             return ""
         
-        text = str(text)  # Ensure it's a string
+        text = str(text)
         
-        # Characters that need escaping in LaTeX
-        replacements = {
-            '\\': r'\textbackslash{}',
-            '&': r'\&',
-            '%': r'\%',
-            '$': r'\$',
-            '#': r'\#',
-            '_': r'\_',
-            '{': r'\{',
-            '}': r'\}',
-            '~': r'\textasciitilde{}',
-            '^': r'\^{}',
+        # First: Replace Unicode math symbols with LaTeX equivalents
+        unicode_replacements = {
+            '⁻¹': r'$^{-1}$',
+            '∫': r'$\int$',
+            '∑': r'$\sum$',
+            '∏': r'$\prod$',
+            '√': r'$\sqrt{}$',
+            '≤': r'$\leq$',
+            '≥': r'$\geq$',
+            '≠': r'$\neq$',
+            '∈': r'$\in$',
+            '∞': r'$\infty$',
+            'π': r'$\pi$',
+            '²': r'$^2$',
+            '³': r'$^3$',
+            '°': r'$^\circ$',
+            '±': r'$\pm$',
+            '×': r'$\times$',
+            '÷': r'$\div$',
+            '≈': r'$\approx$',
+            'α': r'$\alpha$',
+            'β': r'$\beta$',
+            'γ': r'$\gamma$',
+            'θ': r'$\theta$',
+            'λ': r'$\lambda$',
+            'μ': r'$\mu$',
+            'σ': r'$\sigma$',
+            'Δ': r'$\Delta$',
         }
         
-        for char, escaped in replacements.items():
-            text = text.replace(char, escaped)
+        for unicode_char, latex_cmd in unicode_replacements.items():
+            text = text.replace(unicode_char, latex_cmd)
+        
+        # Second: Escape LaTeX special characters (but not if already in math mode)
+        if '$' not in text:  # Only escape if not already using math mode
+            latex_special = {
+                '&': r'\&',
+                '%': r'\%',
+                '#': r'\#',
+                '_': r'\_',
+                '{': r'\{',
+                '}': r'\}',
+                '~': r'\textasciitilde{}',
+                '^': r'\^{}',
+                '\\': r'\textbackslash{}',
+            }
+            
+            for char, escaped in latex_special.items():
+                text = text.replace(char, escaped)
         
         return text
     
-    def safe_read_file(self, filepath, encoding='utf-8'):
+    def safe_read_file(self, filepath):
         """Safely read a file with fallback encodings"""
-        encodings = [encoding, 'utf-8', 'latin-1', 'cp1252']
+        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
         
         for enc in encodings:
             try:
                 with open(filepath, 'r', encoding=enc, errors='replace') as f:
                     return f.read()
-            except Exception:
+            except:
                 continue
         
         # Last resort: binary read
         try:
             with open(filepath, 'rb') as f:
                 return f.read().decode('utf-8', errors='replace')
-        except Exception as e:
-            return f"Could not read file: {e}"
+        except:
+            return "Could not read file"
     
     def generate(self, solution_data):
-        """Wrapper method for create_pdf() - used by bot"""
+        """Main entry point - called by bot"""
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return self.create_pdf(solution_data, f"solution_{timestamp}")
     
     def create_pdf(self, solution_data, filename="calculus_solution"):
-        """
-        Create complete PDF from solution data
+        """Create PDF from solution data"""
         
-        Args:
-            solution_data: Dictionary containing:
-                - problem: Original problem description
-                - strategy_1: Cengage method solution
-                - strategy_2: Black Book shortcuts
-                - strategy_3: Olympiad tricks
-                - verification: SymPy verification results
-                - graphs: List of graph file paths
-                - final_answer: Final answer
-                - confidence: Confidence percentage
-        """
-        
-        # DEBUG: Print what we received
         print("\n" + "="*60)
-        print("DEBUG: Solution data received:")
+        print("PDF Generator: Starting...")
         print("="*60)
-        for key, value in solution_data.items():
-            print(f"{key}: {str(value)[:200]}")  # Print first 200 chars of each field
-        print("="*60 + "\n")
         
         try:
-            # Create document with minimal documentclass options
+            # Create LaTeX document
             doc = Document(
                 documentclass='article',
                 document_options=['10pt'],
                 geometry_options={'margin': '1in'}
             )
             
-            # CRITICAL FIX: Add packages MANUALLY before PyLaTeX adds its defaults
-            doc.packages.clear()  # Clear any auto-added packages
-            
-            # Add ONLY the packages we need and have installed
+            # Clear auto-added packages and add only what we need
+            doc.packages.clear()
             doc.preamble.append(NoEscape(r'\usepackage{amsmath}'))
             doc.preamble.append(NoEscape(r'\usepackage{amssymb}'))
-            doc.preamble.append(NoEscape(r'\usepackage{amsfonts}'))
             doc.preamble.append(NoEscape(r'\usepackage{graphicx}'))
             doc.preamble.append(NoEscape(r'\usepackage{xcolor}'))
             doc.preamble.append(NoEscape(r'\usepackage{booktabs}'))
-            doc.preamble.append(NoEscape(r'\usepackage{tikz}'))
             
-            # Add custom color definitions for each strategy
+            # Custom colors
             doc.preamble.append(NoEscape(r'\definecolor{cengage}{RGB}{0,102,204}'))
             doc.preamble.append(NoEscape(r'\definecolor{blackbook}{RGB}{204,0,102}'))
             doc.preamble.append(NoEscape(r'\definecolor{olympiad}{RGB}{102,51,153}'))
             
-            # Title Section
+            # Title
             doc.append(NoEscape(r'\begin{center}'))
             doc.append(NoEscape(r'\LARGE\textbf{JEE Advanced Calculus Solution}\\[0.5cm]'))
             doc.append(NoEscape(r'\large Ultimate Calculus Bot\\[0.3cm]'))
@@ -135,250 +139,115 @@ class PDFGenerator:
             
             # Problem Statement
             with doc.create(Section('Problem Statement')):
-                problem_text = self.escape_latex(solution_data.get('problem', 'Problem from image'))
-                doc.append(problem_text)
+                problem = self.escape_latex(solution_data.get('problem', 'Problem from image'))
+                doc.append(problem)
             
-            # Strategy 1: Cengage Method (Textbook Rigor)
-            with doc.create(Section('Strategy 1: Cengage Method (Textbook Rigor)')):
-                doc.append(NoEscape(r'\textcolor{cengage}{\textbf{Systematic Step-by-Step Solution}}'))
+            # Strategy 1
+            with doc.create(Section('Strategy 1: Cengage Method')):
+                doc.append(NoEscape(r'\textcolor{cengage}{\textbf{Systematic Solution}}'))
                 doc.append('\n\n')
-                
-                strategy_1 = solution_data.get('strategy_1', 'No solution available')
-                
-                # Handle different formats safely
-                if isinstance(strategy_1, dict):
-                    for step, content in strategy_1.items():
-                        doc.append(bold(self.escape_latex(str(step)) + ': '))
-                        doc.append(self.escape_latex(str(content)))
-                        doc.append('\n\n')
-                elif isinstance(strategy_1, str):
-                    # Split by newlines and format nicely
-                    lines = strategy_1.split('\n')
-                    for line in lines:
-                        if line.strip():
-                            doc.append(self.escape_latex(line.strip()))
-                            doc.append('\n')
-                else:
-                    doc.append(self.escape_latex(str(strategy_1)))
+                self._add_strategy_content(doc, solution_data.get('strategy_1', 'N/A'))
             
-            # Strategy 2: Black Book Shortcuts (Quick Method)
-            with doc.create(Section('Strategy 2: Black Book Shortcuts (Quick Method)')):
-                doc.append(NoEscape(r'\textcolor{blackbook}{\textbf{Pattern Recognition \& Speed}}'))
+            # Strategy 2
+            with doc.create(Section('Strategy 2: Black Book Shortcuts')):
+                doc.append(NoEscape(r'\textcolor{blackbook}{\textbf{Quick Method}}'))
                 doc.append('\n\n')
-                
-                strategy_2 = solution_data.get('strategy_2', 'No solution available')
-                
-                if isinstance(strategy_2, dict):
-                    for key, content in strategy_2.items():
-                        doc.append(bold(self.escape_latex(str(key)) + ': '))
-                        doc.append(self.escape_latex(str(content)))
-                        doc.append('\n\n')
-                elif isinstance(strategy_2, str):
-                    lines = strategy_2.split('\n')
-                    for line in lines:
-                        if line.strip():
-                            doc.append(self.escape_latex(line.strip()))
-                            doc.append('\n')
-                else:
-                    doc.append(self.escape_latex(str(strategy_2)))
+                self._add_strategy_content(doc, solution_data.get('strategy_2', 'N/A'))
             
-            # Strategy 3: Olympiad Tricks (Elegant Insights)
-            with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights')):
-                doc.append(NoEscape(r'\textcolor{olympiad}{\textbf{Elegant Mathematical Approach}}'))
+            # Strategy 3
+            with doc.create(Section('Strategy 3: Olympiad Insights')):
+                doc.append(NoEscape(r'\textcolor{olympiad}{\textbf{Elegant Approach}}'))
                 doc.append('\n\n')
-                
-                strategy_3 = solution_data.get('strategy_3', 'No solution available')
-                
-                if isinstance(strategy_3, dict):
-                    for key, content in strategy_3.items():
-                        doc.append(bold(self.escape_latex(str(key)) + ': '))
-                        doc.append(self.escape_latex(str(content)))
-                        doc.append('\n\n')
-                elif isinstance(strategy_3, str):
-                    lines = strategy_3.split('\n')
-                    for line in lines:
-                        if line.strip():
-                            doc.append(self.escape_latex(line.strip()))
-                            doc.append('\n')
-                else:
-                    doc.append(self.escape_latex(str(strategy_3)))
+                self._add_strategy_content(doc, solution_data.get('strategy_3', 'N/A'))
             
-            # Verification Section with Professional Table
-            with doc.create(Section('Verification and Cross-Check')):
-                verification = solution_data.get('verification', {})
-                
-                doc.append('Comparison of all three strategies:\n\n')
-                
-                # Create comparison table using booktabs (professional style)
-                with doc.create(Tabular('|l|l|')) as table:
-                    table.add_hline()
-                    table.add_row(['Strategy', 'Answer'])
-                    table.add_hline()
-                    table.add_row(['Cengage Method', 
-                                  self.escape_latex(str(verification.get('strategy_1_answer', 'N/A')))])
-                    table.add_row(['Black Book', 
-                                  self.escape_latex(str(verification.get('strategy_2_answer', 'N/A')))])
-                    table.add_row(['Olympiad', 
-                                  self.escape_latex(str(verification.get('strategy_3_answer', 'N/A')))])
-                    table.add_hline()
-                
-                doc.append('\n\n')
-                doc.append(bold('All methods agree: '))
-                agree_status = 'YES' if verification.get('all_agree', False) else 'NO - Review needed'
-                doc.append(self.escape_latex(str(agree_status)))
-                doc.append('\n\n')
-                
-                doc.append(bold('SymPy Verification: '))
-                doc.append(self.escape_latex(str(verification.get('sympy_check', 'Verified'))))
+            # Verification
+            with doc.create(Section('Verification')):
+                doc.append('All three strategies agree: ')
+                doc.append(bold('YES' if solution_data.get('all_agree') else 'NO'))
             
-            # Graphs Section (if any)
+            # Graphs
             graphs = solution_data.get('graphs', [])
             if graphs:
-                with doc.create(Section('Graphical Visualization')):
-                    doc.append('Visual representation of the function and solution:\n\n')
+                with doc.create(Section('Graphs')):
                     for i, graph_path in enumerate(graphs):
                         if os.path.exists(graph_path):
                             with doc.create(Figure(position='h!')) as fig:
-                                fig.add_image(graph_path, width='350px')
-                                fig.add_caption(f'Graph {i+1}: Function visualization')
+                                fig.add_image(graph_path, width='300px')
+                                fig.add_caption(f'Visualization {i+1}')
             
-            # Final Answer Section (Highlighted)
+            # Final Answer
             with doc.create(Section('Final Answer')):
-                doc.append(NoEscape(r'\begin{center}'))
-                doc.append(NoEscape(r'\Large\textbf{'))
-                final_answer = solution_data.get('final_answer', 'Answer not available')
-                doc.append(self.escape_latex(str(final_answer)))
-                doc.append(NoEscape(r'}'))
-                doc.append(NoEscape(r'\end{center}'))
+                doc.append(NoEscape(r'\begin{center}\Large\textbf{'))
+                doc.append(self.escape_latex(str(solution_data.get('final_answer', 'N/A'))))
+                doc.append(NoEscape(r'}\end{center}'))
                 doc.append('\n\n')
-                
                 doc.append(bold('Confidence: '))
-                confidence_value = solution_data.get('confidence', 0)
-                # Ensure confidence is a number
-                try:
-                    confidence_num = float(str(confidence_value).rstrip('%'))
-                    doc.append(f"{int(confidence_num)}")
-                except (ValueError, AttributeError):
-                    doc.append(str(confidence_value))
+                doc.append(f"{solution_data.get('confidence', 0)}")
                 doc.append(NoEscape(r'\%'))
                 doc.append('\n\n')
-                
-                doc.append(bold('Reasoning: '))
-                reasoning = solution_data.get('one_sentence_reason', 'Solution verified through multiple methods')
-                doc.append(self.escape_latex(str(reasoning)))
+                doc.append(bold('Reason: '))
+                doc.append(self.escape_latex(str(solution_data.get('one_sentence_reason', 'N/A'))))
             
-            # JEE Trap Checks (Critical for JEE Advanced!)
-            if 'jee_traps' in solution_data:
-                with doc.create(Section('JEE Trap Verification')):
-                    doc.append('Common JEE Advanced traps checked:\n\n')
-                    traps = solution_data['jee_traps']
-                    for trap, status in traps.items():
-                        doc.append(NoEscape(r'\textbullet\ '))
-                        doc.append(self.escape_latex(f"{trap}: {status}"))
-                        doc.append('\n')
-            
-            # Generate PDF using pdflatex (Springer/Nature standard)
+            # Generate .tex file
             pdf_path = os.path.join(self.output_dir, filename)
+            doc.generate_tex(pdf_path)
             
-            # Generate with clean_tex=False to see what's happening
-            doc.generate_pdf(pdf_path, compiler='pdflatex', clean_tex=False, silent=False)
-            return f"{pdf_path}.pdf"
+            print("✓ LaTeX file generated")
             
-        except subprocess.CalledProcessError as e:
-            # LaTeX compilation failed - print detailed error
-            print(f"\n{'='*60}")
-            print("ERROR: LATEX COMPILATION FAILED!")
-            print(f"{'='*60}")
-            
-            # Save the .tex file for inspection
+            # Compile to PDF manually with proper error handling
             tex_file = f"{pdf_path}.tex"
-            print(f"TEX file location: {tex_file}")
             
-            # Try to read and print the LaTeX log with safe encoding
-            log_file = f"{pdf_path}.log"
-            if os.path.exists(log_file):
-                print("\nLaTeX Error Log (last 100 lines):")
-                print("-" * 60)
-                log_content = self.safe_read_file(log_file)
-                lines = log_content.split('\n')
-                for line in lines[-100:]:
-                    print(line.rstrip())
-                print("-" * 60)
+            result = subprocess.run(
+                ['pdflatex', '--interaction=nonstopmode', tex_file],
+                cwd=self.output_dir,
+                capture_output=True,
+                timeout=30
+            )
             
-            # Also print the generated .tex file content for debugging
-            if os.path.exists(tex_file):
-                print("\nGenerated LaTeX Content:")
-                print("-" * 60)
-                tex_content = self.safe_read_file(tex_file)
-                print(tex_content[:2000])  # Print first 2000 chars
-                if len(tex_content) > 2000:
-                    print("\n... (truncated)")
-                print("-" * 60)
+            if result.returncode != 0:
+                # Decode error output safely
+                error_msg = result.stdout.decode('utf-8', errors='replace')
+                print(f"\n{'='*60}")
+                print("LaTeX Compilation Error:")
+                print(error_msg[-1500:])  # Last 1500 chars
+                print(f"{'='*60}\n")
+                
+                # Check log file
+                log_file = f"{pdf_path}.log"
+                if os.path.exists(log_file):
+                    log_content = self.safe_read_file(log_file)
+                    print("Log file (last 1000 chars):")
+                    print(log_content[-1000:])
+                
+                raise Exception("LaTeX compilation failed")
             
-            raise Exception(f"PDF compilation failed. Check logs above for LaTeX errors.")
-        
+            pdf_output = f"{pdf_path}.pdf"
+            if not os.path.exists(pdf_output):
+                raise Exception("PDF was not created")
+            
+            print(f"✓ PDF created: {pdf_output}")
+            return pdf_output
+            
+        except subprocess.TimeoutExpired:
+            raise Exception("LaTeX compilation timed out")
         except Exception as e:
-            print(f"Error generating PDF: {e}")
+            print(f"PDF generation error: {e}")
             import traceback
             traceback.print_exc()
             raise
     
-    def create_graph(self, function_str, x_range=(-5, 5), filename="graph"):
-        """
-        Create a matplotlib graph and save it
-        Used for visualizing functions, derivatives, integrals
-        
-        Args:
-            function_str: String representation of function (for label)
-            x_range: Tuple of (min, max) for x-axis
-            filename: Output filename
-        
-        Returns:
-            Path to saved graph
-        """
-        try:
-            import numpy as np
-            
-            # Create figure with high DPI for PDF embedding
-            fig, ax = plt.subplots(figsize=(8, 6), dpi=150)
-            
-            # Generate x values
-            x = np.linspace(x_range[0], x_range[1], 1000)
-            
-            # This is a placeholder - actual function evaluation would come from SymPy
-            # For now, just create a sample graph
-            y = x**2  # Example function
-            
-            # Plot with professional styling
-            ax.plot(x, y, 'b-', linewidth=2, label=function_str)
-            ax.grid(True, alpha=0.3, linestyle='--')
-            ax.axhline(y=0, color='k', linewidth=0.8)
-            ax.axvline(x=0, color='k', linewidth=0.8)
-            ax.legend(fontsize=11)
-            ax.set_xlabel('x', fontsize=12, fontweight='bold')
-            ax.set_ylabel('f(x)', fontsize=12, fontweight='bold')
-            ax.set_title(f'Graph of {function_str}', fontsize=14, fontweight='bold')
-            
-            # Tight layout for better appearance
-            plt.tight_layout()
-            
-            # Save with high resolution
-            graph_path = os.path.join("temp_graphs", f"{filename}.png")
-            plt.savefig(graph_path, dpi=300, bbox_inches='tight', facecolor='white')
-            plt.close()
-            
-            return graph_path
-        except Exception as e:
-            print(f"Error creating graph: {e}")
-            return None
-    
-    def cleanup(self):
-        """Clean up temporary files"""
-        import shutil
-        try:
-            if os.path.exists(self.output_dir):
-                shutil.rmtree(self.output_dir)
-            if os.path.exists("temp_graphs"):
-                shutil.rmtree("temp_graphs")
-        except Exception as e:
-            print(f"Cleanup error: {e}")
+    def _add_strategy_content(self, doc, content):
+        """Add strategy content to document"""
+        if isinstance(content, dict):
+            for key, value in content.items():
+                doc.append(bold(self.escape_latex(str(key)) + ': '))
+                doc.append(self.escape_latex(str(value)))
+                doc.append('\n\n')
+        elif isinstance(content, str):
+            lines = content.split('\n')
+            for line in lines:
+                if line.strip():
+                    doc.append(self.escape_latex(line.strip()))
+                    doc.append('\n')
+        else:
+            doc.append(self.escape_latex(str(content)))
