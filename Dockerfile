@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-fonts-recommended \
     texlive-latex-recommended \
     texlive-pictures \
+    lmodern \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /usr/share/doc/* \
     && rm -rf /usr/share/man/* \
