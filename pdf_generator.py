@@ -86,6 +86,7 @@ class PDFGenerator:
         doc = Document(documentclass='article')
         
         # Add necessary packages for beautiful math and tables
+        # ALL PACKAGES MUST BE IN PREAMBLE (before \begin{document})
         doc.preamble.append(NoEscape(r'\usepackage{amsmath}'))
         doc.preamble.append(NoEscape(r'\usepackage{amssymb}'))
         doc.preamble.append(NoEscape(r'\usepackage{amsfonts}'))
@@ -101,7 +102,8 @@ class PDFGenerator:
         doc.preamble.append(NoEscape(r'\definecolor{blackbook}{RGB}{204,0,102}'))
         doc.preamble.append(NoEscape(r'\definecolor{olympiad}{RGB}{102,51,153}'))
         
-        # Title - Add title after document begins
+        # Title Section (AFTER document begins - handled by PyLaTeX automatically)
+        # Create a custom title using NoEscape
         doc.append(NoEscape(r'\begin{center}'))
         doc.append(NoEscape(r'\LARGE\textbf{JEE Advanced Calculus Solution}\\[0.5cm]'))
         doc.append(NoEscape(r'\large Ultimate Calculus Bot\\[0.3cm]'))
@@ -116,8 +118,7 @@ class PDFGenerator:
             doc.append(problem_text)
         
         # Strategy 1: Cengage Method (Textbook Rigor)
-        with doc.create(Section('Strategy 1: Cengage Method (Textbook Rigor)', 
-                                numbering=True)):
+        with doc.create(Section('Strategy 1: Cengage Method (Textbook Rigor)')):
             doc.append(NoEscape(r'\textcolor{cengage}{\textbf{Systematic Step-by-Step Solution}}'))
             doc.append('\n\n')
             
@@ -140,8 +141,7 @@ class PDFGenerator:
                 doc.append(self.escape_latex(str(strategy_1)))
         
         # Strategy 2: Black Book Shortcuts (Quick Method)
-        with doc.create(Section('Strategy 2: Black Book Shortcuts (Quick Method)', 
-                                numbering=True)):
+        with doc.create(Section('Strategy 2: Black Book Shortcuts (Quick Method)')):
             doc.append(NoEscape(r'\textcolor{blackbook}{\textbf{Pattern Recognition \& Speed}}'))
             doc.append('\n\n')
             
@@ -162,8 +162,7 @@ class PDFGenerator:
                 doc.append(self.escape_latex(str(strategy_2)))
         
         # Strategy 3: Olympiad Tricks (Elegant Insights)
-        with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights', 
-                                numbering=True)):
+        with doc.create(Section('Strategy 3: Olympiad/Exceptional Insights')):
             doc.append(NoEscape(r'\textcolor{olympiad}{\textbf{Elegant Mathematical Approach}}'))
             doc.append('\n\n')
             
