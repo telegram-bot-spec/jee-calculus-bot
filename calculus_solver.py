@@ -9,37 +9,38 @@ from sympy_verifier import SympyVerifier
 
 class CalculusSolver:
     def __init__(self):
-    # Load environment variables first
-    from dotenv import load_dotenv
-    load_dotenv()
-    
-    # Setup API keys rotation
-    self.api_keys = [
-        os.getenv('GEMINI_API_KEY_1'),
-        os.getenv('GEMINI_API_KEY_2'),
-        os.getenv('GEMINI_API_KEY_3'),
-        os.getenv('GEMINI_API_KEY_4'),
-        os.getenv('GEMINI_API_KEY_5'),
-    ]
-    
-    # Filter out None values
-    self.api_keys = [key for key in self.api_keys if key]
-    
-    # Verify we have at least one key
-    if not self.api_keys:
-        raise ValueError(
-            "❌ No Gemini API keys found!\n"
-            "Please set GEMINI_API_KEY_1 through GEMINI_API_KEY_5 in Railway environment variables.\n"
-            "Get keys from: https://aistudio.google.com/app/apikey"
-        )
-    
-    print(f"✅ Loaded {len(self.api_keys)} Gemini API key(s)")
-    
-    self.current_key_index = 0
-    self.verifier = SympyVerifier()
-    
-    # Configure Gemini
-    self.setup_gemini()
+        """Initialize the calculus solver with API keys and configuration"""
+        # Load environment variables
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        # Setup API keys rotation
+        self.api_keys = [
+            os.getenv('GEMINI_API_KEY_1'),
+            os.getenv('GEMINI_API_KEY_2'),
+            os.getenv('GEMINI_API_KEY_3'),
+            os.getenv('GEMINI_API_KEY_4'),
+            os.getenv('GEMINI_API_KEY_5'),
+        ]
+        
+        # Filter out None values (keys that weren't set)
+        self.api_keys = [key for key in self.api_keys if key]
+        
+        # Verify we have at least one key
+        if not self.api_keys:
+            raise ValueError(
+                "❌ No Gemini API keys found!\n"
+                "Please set GEMINI_API_KEY_1 through GEMINI_API_KEY_5 in Railway environment variables.\n"
+                "Get keys from: https://aistudio.google.com/app/apikey"
+            )
+        
+        print(f"✅ Loaded {len(self.api_keys)} Gemini API key(s)")
+        
+        self.current_key_index = 0
+        self.verifier = SympyVerifier()
+        
+        # Configure Gemini
+        self.setup_gemini()
         
     def setup_gemini(self):
         """Setup Gemini API with current key"""
@@ -125,10 +126,10 @@ Approach: Memorized patterns, symmetry, shortcuts
 
 PATTERN RECOGNITION:
 - Is this a standard form I've memorized?
-- Can I use King's Property: ∫[a,b] f(x)dx = ∫[a,b] f(a+b-x)dx?
+- Can I use King's Property: integral[a,b] f(x)dx = integral[a,b] f(a+b-x)dx?
 - Is the function even/odd? (Use symmetry)
 - Is there f'(x) in the numerator? (Quick substitution)
-- Is this (f(x))^n · f'(x)? (Power rule for integration)
+- Is this (f(x))^n * f'(x)? (Power rule for integration)
 
 SHORTCUT APPLIED:
 - Which specific shortcut from the knowledge base applies?
@@ -151,7 +152,7 @@ Approach: Advanced techniques, clever tricks
 
 EXCEPTIONAL TECHNIQUES TO CONSIDER:
 - Feynman's trick (differentiation under integral sign)
-- Weierstrass substitution (t = tan(θ/2))
+- Weierstrass substitution (t = tan(theta/2))
 - Complex variable methods
 - Symmetry exploitation
 - Geometric interpretation
