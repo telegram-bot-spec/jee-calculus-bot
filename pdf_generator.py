@@ -1,6 +1,6 @@
 """
 PDF Generator for JEE Calculus Bot
-FINAL VERSION with all UTF-8 and LaTeX fixes
+FINAL VERSION with all UTF-8 and LaTeX fixes (STABLE RELEASE)
 """
 
 import os
@@ -59,7 +59,7 @@ class PDFGenerator:
             text = text.replace(unicode_char, latex_cmd)
         
         # Second: Escape LaTeX special characters (but not if already in math mode)
-        if '$' not in text:  # Only escape if not already using math mode
+        if '$' not in text:
             latex_special = {
                 '&': r'\&',
                 '%': r'\%',
@@ -88,7 +88,6 @@ class PDFGenerator:
             except:
                 continue
         
-        # Last resort: binary read
         try:
             with open(filepath, 'rb') as f:
                 return f.read().decode('utf-8', errors='replace')
@@ -116,7 +115,6 @@ class PDFGenerator:
                 geometry_options={'margin': '1in'}
             )
             
-            # Clear auto-added packages and add only what we need
             doc.packages.clear()
             doc.preamble.append(NoEscape(r'\usepackage{amsmath}'))
             doc.preamble.append(NoEscape(r'\usepackage{amssymb}'))
@@ -191,28 +189,31 @@ class PDFGenerator:
             # Generate .tex file
             pdf_path = os.path.join(self.output_dir, filename)
             doc.generate_tex(pdf_path)
-            
             print("✓ LaTeX file generated")
-            
-            # Compile to PDF manually with proper error handling
+
             tex_file = f"{pdf_path}.tex"
+
+            # ✅ FIX: safer compilation with xelatex + extended timeout + stderr logging
+            if not os.path.exists(tex_file):
+                raise Exception(f"LaTeX source file not found: {tex_file}")
             
-            result = subprocess.run(
-                ['pdflatex', '--interaction=nonstopmode', tex_file],
-                cwd=self.output_dir,
-                capture_output=True,
-                timeout=30
-            )
+            try:
+                result = subprocess.run(
+                    ['xelatex', '--interaction=nonstopmode', tex_file],
+                    cwd=self.output_dir,
+                    capture_output=True,
+                    timeout=60
+                )
+            except FileNotFoundError:
+                raise Exception("XeLaTeX not found — install TeXLive or xelatex package")
             
             if result.returncode != 0:
-                # Decode error output safely
-                error_msg = result.stdout.decode('utf-8', errors='replace')
                 print(f"\n{'='*60}")
                 print("LaTeX Compilation Error:")
-                print(error_msg[-1500:])  # Last 1500 chars
+                print(result.stdout.decode('utf-8', errors='replace')[-1500:])
+                print(result.stderr.decode('utf-8', errors='replace')[-1500:])
                 print(f"{'='*60}\n")
                 
-                # Check log file
                 log_file = f"{pdf_path}.log"
                 if os.path.exists(log_file):
                     log_content = self.safe_read_file(log_file)
@@ -229,7 +230,7 @@ class PDFGenerator:
             return pdf_output
             
         except subprocess.TimeoutExpired:
-            raise Exception("LaTeX compilation timed out")
+            raise Exception("LaTeX compilation timed out (try reducing content or increase timeout)")
         except Exception as e:
             print(f"PDF generation error: {e}")
             import traceback
