@@ -1,0 +1,42 @@
+# Environment variables (NEVER commit secrets!)
+.env
+
+# Python cache
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Generated files
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.tex
+*.aux
+*.log
+*.out
+
+# Temporary directories
+temp_images/
+temp_graphs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Distribution
+dist/
+build/
+*.egg-info/
