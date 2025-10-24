@@ -109,12 +109,12 @@ class SympyVerifier:
             # In production, parse actual expressions and verify
             
             # Check basic differentiation rules
-test_cases = [
-    (self.x**2, self.x**3/3, "Power rule integration"),
-    (sin(self.x), -cos(self.x), "sin integration"),
-    (exp(self.x), exp(self.x), "exp integration"),
-    (1/self.x, log(Abs(self.x)), "1/x integration"),
-]
+            test_cases = [
+                (self.x**2, 2*self.x, "Power rule differentiation"),
+                (sin(self.x), cos(self.x), "sin differentiation"),
+                (exp(self.x), exp(self.x), "exp differentiation"),
+                (log(self.x), 1/self.x, "log differentiation"),
+            ]
             
             for func, expected_deriv, rule_name in test_cases:
                 computed = diff(func, self.x)
@@ -136,10 +136,10 @@ test_cases = [
             
             # Check basic integration rules
             test_cases = [
-                (x**2, x**3/3, "Power rule integration"),
+                (self.x**2, self.x**3/3, "Power rule integration"),
                 (sin(self.x), -cos(self.x), "sin integration"),
                 (exp(self.x), exp(self.x), "exp integration"),
-                (1/self.x, log(abs(self.x)), "1/x integration"),
+                (1/self.x, log(Abs(self.x)), "1/x integration"),
             ]
             
             for func, expected_integral, rule_name in test_cases:
