@@ -209,9 +209,12 @@ Begin analysis now! 🧮
 """
         return prompt
     
-    async def solve(self, image: Image.Image):
+    async def solve(self, image_path: str):
         """Solve calculus problem with triple-strategy approach"""
         try:
+            # Open image from path
+            image = Image.open(image_path)
+            
             # Convert image to bytes
             img_byte_arr = io.BytesIO()
             image.save(img_byte_arr, format='PNG', quality=98)
