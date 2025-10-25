@@ -50,6 +50,7 @@ class CalculusSolver:
     def rotate_api_key(self):
         """Rotate to next API key"""
         self.current_key_index = (self.current_key_index + 1) % len(self.api_keys)
+        print(f"🔄 Rotating to API key {self.current_key_index + 1}/{len(self.api_keys)}")
         self.setup_gemini()
     
     def build_ultimate_prompt(self):
@@ -230,47 +231,68 @@ Begin analysis now! 🧮
     
     async def solve(self, image_path: str):
         """Solve calculus problem with triple-strategy approach"""
-        try:
-            # Open image from path
-            image = Image.open(image_path)
-            
-            # Convert image to bytes
-            img_byte_arr = io.BytesIO()
-            image.save(img_byte_arr, format='PNG', quality=98)
-            img_byte_arr = img_byte_arr.getvalue()
-            
-            # Build prompt
-            prompt = self.build_ultimate_prompt()
-            
-            # Call Gemini with image
-            response = self.model.generate_content(
-                [prompt, image],
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.05,  # Low temperature for consistency
-                    top_p=0.95,
-                    top_k=40,
-                    max_output_tokens=8192,
+        max_retries = len(self.api_keys)
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                # Open image from path
+                image = Image.open(image_path)
+                
+                # Convert image to bytes
+                img_byte_arr = io.BytesIO()
+                image.save(img_byte_arr, format='PNG', quality=98)
+                img_byte_arr = img_byte_arr.getvalue()
+                
+                # Build prompt
+                prompt = self.build_ultimate_prompt()
+                
+                # Call Gemini with image
+                response = self.model.generate_content(
+                    [prompt, image],
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.05,  # Low temperature for consistency
+                        top_p=0.95,
+                        top_k=40,
+                        max_output_tokens=8192,
+                    )
                 )
-            )
-            
-            analysis = response.text
-            
-            # Parse response
-            solution_data = self.parse_response(analysis)
-            
-            # Verify with SymPy
-            verification_result = self.verifier.verify_solution(solution_data)
-            solution_data['sympy_verification'] = verification_result
-            
-            # Generate graphs if needed
-            solution_data['graphs'] = self.verifier.generate_graphs(solution_data)
-            
-            return solution_data
-            
-        except Exception as e:
-            # Try rotating API key on error
-            self.rotate_api_key()
-            raise e
+                
+                analysis = response.text
+                
+                # Parse response
+                solution_data = self.parse_response(analysis)
+                
+                # Verify with SymPy
+                verification_result = self.verifier.verify_solution(solution_data)
+                solution_data['sympy_verification'] = verification_result
+                
+                # Generate graphs if needed
+                solution_data['graphs'] = self.verifier.generate_graphs(solution_data)
+                
+                print(f"✅ Solution generated successfully with API key {self.current_key_index + 1}")
+                return solution_data
+                
+            except Exception as e:
+                last_error = e
+                error_msg = str(e)
+                
+                print(f"⚠️ Error with API key {self.current_key_index + 1}: {error_msg[:100]}")
+                
+                # Check if quota exceeded
+                if '429' in error_msg or 'quota' in error_msg.lower() or 'exceeded' in error_msg.lower():
+                    print(f"⚠️ API key {self.current_key_index + 1} quota exceeded")
+                    if attempt < max_retries - 1:
+                        self.rotate_api_key()
+                        continue
+                else:
+                    # For other errors, try rotating once
+                    if attempt < max_retries - 1:
+                        self.rotate_api_key()
+                        continue
+        
+        # All attempts failed
+        raise Exception(f"All {len(self.api_keys)} API keys exhausted or failed. Last error: {last_error}")
     
     def parse_response(self, analysis: str):
         """Parse Gemini's response into structured data"""
