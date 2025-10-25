@@ -149,7 +149,55 @@ Ready to solve! 🚀
                 parse_mode='Markdown'
             )
             
-            pdf_path = self.pdf_generator.generate(solution_data)
+            # MODIFIED: Catch PDF generation errors and send debug info to Telegram
+            try:
+                pdf_path = self.pdf_generator.generate(solution_data)
+            except Exception as pdf_error:
+                # Send debug info to Telegram
+                debug_msg = f"🔧 **PDF GENERATION DEBUG INFO**\n\n"
+                debug_msg += f"Error: {str(pdf_error)[:500]}\n\n"
+                
+                # Try to read the debug .tex file
+                debug_tex_path = "temp_pdfs/DEBUG_last_compile.tex"
+                if os.path.exists(debug_tex_path):
+                    with open(debug_tex_path, 'r', encoding='utf-8', errors='replace') as f:
+                        tex_content = f.read()
+                    
+                    # Send .tex file to user for inspection
+                    await update.message.reply_document(
+                        document=open(debug_tex_path, 'rb'),
+                        filename='debug.tex',
+                        caption="🔍 Debug: Here's the LaTeX file that failed to compile"
+                    )
+                
+                # Check if log file exists
+                log_files = [f for f in os.listdir('temp_pdfs') if f.endswith('.log')]
+                if log_files:
+                    latest_log = os.path.join('temp_pdfs', log_files[-1])
+                    with open(latest_log, 'r', encoding='utf-8', errors='replace') as f:
+                        log_content = f.read()
+                    
+                    # Find the actual error in log
+                    error_lines = []
+                    for line in log_content.split('\n'):
+                        if '!' in line or 'Error' in line or 'error' in line:
+                            error_lines.append(line)
+                    
+                    if error_lines:
+                        debug_msg += f"📄 **LaTeX Errors Found:**\n"
+                        debug_msg += '\n'.join(error_lines[:10])  # First 10 error lines
+                    
+                    # Send log file excerpt
+                    log_excerpt = log_content[-2000:]  # Last 2000 chars
+                    await update.message.reply_text(
+                        f"📄 **Log File (last 2000 chars):**\n\n```\n{log_excerpt}\n```",
+                        parse_mode='Markdown'
+                    )
+                
+                await update.message.reply_text(debug_msg, parse_mode='Markdown')
+                
+                # Re-raise to show user the error
+                raise
             
             # Send PDF
             await processing_msg.edit_text(
