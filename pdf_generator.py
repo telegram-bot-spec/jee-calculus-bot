@@ -1,7 +1,6 @@
 """
-PDF Generator - Hybrid Approach (MOST RELIABLE)
-Uses pdflatex locally BUT with proper error handling and fallback
-This WILL work on Railway with the right Dockerfile
+PDF Generator - WITH COMPLETE DEBUG LOGGING
+This will show us EXACTLY what's failing
 """
 
 import os
@@ -20,7 +19,7 @@ class PDFGenerator:
         return self.create_pdf_local(solution_data, f"solution_{timestamp}")
     
     def create_pdf_local(self, solution_data, filename):
-        """Create PDF using local pdflatex with proper escaping"""
+        """Create PDF using local pdflatex with FULL ERROR REPORTING"""
         
         print("\n" + "="*60)
         print("PDF Generator: Creating PDF with pdflatex...")
@@ -36,10 +35,17 @@ class PDFGenerator:
                 f.write(latex_content)
             
             print(f"✓ LaTeX file written: {tex_path}")
+            print(f"✓ LaTeX content length: {len(latex_content)} chars")
+            
+            # DEBUG: Save a copy for inspection
+            debug_tex = os.path.join(self.output_dir, "DEBUG_last_compile.tex")
+            with open(debug_tex, 'w', encoding='utf-8') as f:
+                f.write(latex_content)
+            print(f"✓ DEBUG copy saved: {debug_tex}")
             
             # Step 3: Compile with pdflatex (run twice for TOC)
             for run in [1, 2]:
-                print(f"Running pdflatex (pass {run}/2)...")
+                print(f"\nRunning pdflatex (pass {run}/2)...")
                 result = subprocess.run(
                     [
                         'pdflatex',
@@ -54,36 +60,73 @@ class PDFGenerator:
                     text=True
                 )
                 
-                if result.returncode != 0 and run == 2:
-                    # Only fail on second run
+                print(f"Return code: {result.returncode}")
+                
+                if result.returncode != 0:
+                    # FULL ERROR REPORTING
                     print(f"\n{'='*60}")
-                    print("LaTeX Compilation Error (Last 1000 chars):")
-                    print(result.stdout[-1000:] if result.stdout else "No output")
-                    print(f"{'='*60}\n")
-                    raise Exception(f"pdflatex failed with return code {result.returncode}")
+                    print(f"❌ PDFLATEX FAILED ON PASS {run}/2")
+                    print(f"{'='*60}")
+                    
+                    print("\n📄 STDOUT (last 2000 chars):")
+                    print(result.stdout[-2000:] if result.stdout else "No stdout")
+                    
+                    print("\n📄 STDERR (last 2000 chars):")
+                    print(result.stderr[-2000:] if result.stderr else "No stderr")
+                    
+                    # Try to find the .log file for more details
+                    log_file = os.path.join(self.output_dir, f"{filename}.log")
+                    if os.path.exists(log_file):
+                        print("\n📄 LOG FILE (last 3000 chars):")
+                        with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
+                            log_content = f.read()
+                            print(log_content[-3000:])
+                    
+                    print(f"\n{'='*60}\n")
+                    
+                    if run == 2:
+                        raise Exception(
+                            f"pdflatex failed with return code {result.returncode}\n"
+                            f"Check logs above for details.\n"
+                            f"Debug .tex file saved at: {debug_tex}"
+                        )
             
             # Step 4: Verify PDF was created
             pdf_path = os.path.join(self.output_dir, f"{filename}.pdf")
             if not os.path.exists(pdf_path):
-                raise Exception("PDF was not created despite successful compilation")
+                raise Exception(
+                    f"PDF was not created despite successful compilation\n"
+                    f"Expected: {pdf_path}\n"
+                    f"Directory contents: {os.listdir(self.output_dir)}"
+                )
             
             # Verify it's a valid PDF
             with open(pdf_path, 'rb') as f:
                 header = f.read(4)
                 if header != b'%PDF':
-                    raise Exception("Generated file is not a valid PDF")
+                    raise Exception(f"Generated file is not a valid PDF. Header: {header}")
             
+            file_size = os.path.getsize(pdf_path)
             print(f"✓ PDF created successfully: {pdf_path}")
+            print(f"✓ PDF size: {file_size} bytes")
             return pdf_path
             
         except subprocess.TimeoutExpired:
             raise Exception("pdflatex timeout (120s). LaTeX content too complex.")
         except FileNotFoundError:
-            raise Exception("pdflatex not found. Make sure texlive is installed in Dockerfile.")
+            raise Exception(
+                "pdflatex not found!\n"
+                "Make sure texlive-latex-base is installed in Dockerfile.\n"
+                "Run: apt-get install texlive-latex-base"
+            )
         except Exception as e:
-            print(f"PDF generation error: {e}")
+            print(f"\n{'='*60}")
+            print(f"❌ PDF GENERATION ERROR")
+            print(f"{'='*60}")
+            print(f"Error: {e}")
             import traceback
             traceback.print_exc()
+            print(f"{'='*60}\n")
             raise
     
     def build_latex_document(self, solution_data):
@@ -100,12 +143,20 @@ class PDFGenerator:
         reason = solution_data.get('one_sentence_reason', 'See analysis')
         all_agree = solution_data.get('all_agree', False)
         
+        print(f"Strategy 1 length: {len(str(strategy_1))} chars")
+        print(f"Strategy 2 length: {len(str(strategy_2))} chars")
+        print(f"Strategy 3 length: {len(str(strategy_3))} chars")
+        
         # Clean and escape text
         strategy_1 = self.escape_for_latex(self.clean_text(strategy_1))
         strategy_2 = self.escape_for_latex(self.clean_text(strategy_2))
         strategy_3 = self.escape_for_latex(self.clean_text(strategy_3))
         final_answer = self.escape_for_latex(str(final_answer))
         reason = self.escape_for_latex(str(reason))
+        
+        print(f"After escaping - Strategy 1: {len(strategy_1)} chars")
+        print(f"After escaping - Strategy 2: {len(strategy_2)} chars")
+        print(f"After escaping - Strategy 3: {len(strategy_3)} chars")
         
         # Build document
         latex = r'''\documentclass[10pt,a4paper]{article}
@@ -172,7 +223,7 @@ class PDFGenerator:
 
 \end{document}'''
         
-        print("✓ LaTeX document built")
+        print("✓ LaTeX document built successfully")
         return latex
     
     def clean_text(self, text):
@@ -218,7 +269,6 @@ class PDFGenerator:
             text = text.replace(char, escaped)
         
         # Third pass: Handle problematic Unicode characters
-        # Remove or replace problematic chars that cause pdflatex issues
         unicode_replacements = {
             '\u2019': "'",  # Right single quotation
             '\u2018': "'",  # Left single quotation  
@@ -248,7 +298,6 @@ class PDFGenerator:
             text = text.replace(unicode_char, replacement)
         
         # Fourth pass: Remove any remaining high Unicode that might cause issues
-        # Keep only ASCII + common safe Unicode ranges
         safe_text = []
         for char in text:
             code = ord(char)
