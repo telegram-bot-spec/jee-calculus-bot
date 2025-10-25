@@ -1,36 +1,12 @@
-# Use Python 3.11 slim base image
 FROM python:3.11-slim
 
-# Install ALL LaTeX packages needed for JEE Advanced calculus PDFs
-# This includes everything PyLaTeX might need
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    texlive-latex-base \
-    texlive-fonts-recommended \
-    texlive-latex-recommended \
-    texlive-latex-extra \
-    texlive-fonts-extra \
-    texlive-pictures \
-    texlive-xetex \
-    lmodern \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /usr/share/doc/* \
-    && rm -rf /usr/share/man/* \
-    && rm -rf /usr/share/locale/*
+RUN apt-get update && apt-get install -y texlive-full \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
-
-# Copy requirements first (for better caching)
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy all application files
 COPY . .
+RUN mkdir -p temp_images temp_graphs temp_pdfs output_pdfs
 
-# Create necessary directories
-RUN mkdir -p temp_images temp_graphs temp_pdfs
-
-# Run the bot
 CMD ["python", "bot.py"]
