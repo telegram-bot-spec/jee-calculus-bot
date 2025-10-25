@@ -1,42 +1,62 @@
-# Environment variables (NEVER commit secrets!)
+# Environment variables
 .env
+.env.local
 
-# Python cache
-*.pyc
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual environments
-venv/
+*.so
+.Python
 env/
+venv/
 ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Generated files
-*.pdf
-*.png
-*.jpg
-*.jpeg
-*.tex
+# LaTeX temporary files
 *.aux
 *.log
 *.out
+*.toc
+*.tex
+*.fls
+*.fdb_latexmk
+*.synctex.gz
 
-# Temporary directories
+# Temporary files
 temp_images/
 temp_graphs/
+temp_pdfs/
+output_pdfs/
+*.tmp
+*.temp
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Distribution
-dist/
-build/
-*.egg-info/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
