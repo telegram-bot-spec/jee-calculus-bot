@@ -193,44 +193,49 @@ class PDFGenerator:
 
             tex_file = f"{pdf_path}.tex"
 
-            # ✅ FIX: safer compilation with xelatex + extended timeout + stderr logging
+            # FIX: Use pdflatex instead of xelatex (more compatible)
             if not os.path.exists(tex_file):
                 raise Exception(f"LaTeX source file not found: {tex_file}")
             
             try:
+                # Try pdflatex first (more reliable)
                 result = subprocess.run(
-                    ['xelatex', '--interaction=nonstopmode', tex_file],
+                    ['pdflatex', '-interaction=nonstopmode', '-output-directory', self.output_dir, tex_file],
                     cwd=self.output_dir,
                     capture_output=True,
-                    timeout=60
+                    timeout=120,
+                    text=True
                 )
+                
+                if result.returncode != 0:
+                    # If pdflatex fails, print detailed error
+                    print(f"\n{'='*60}")
+                    print("LaTeX Compilation Error:")
+                    print("STDOUT:", result.stdout[-1500:] if result.stdout else "No output")
+                    print("STDERR:", result.stderr[-1500:] if result.stderr else "No errors")
+                    print(f"{'='*60}\n")
+                    
+                    # Try to read log file for more details
+                    log_file = f"{pdf_path}.log"
+                    if os.path.exists(log_file):
+                        log_content = self.safe_read_file(log_file)
+                        print("Log file (last 1000 chars):")
+                        print(log_content[-1000:])
+                    
+                    raise Exception(f"LaTeX compilation failed with return code {result.returncode}")
+                
             except FileNotFoundError:
-                raise Exception("XeLaTeX not found — install TeXLive or xelatex package")
-            
-            if result.returncode != 0:
-                print(f"\n{'='*60}")
-                print("LaTeX Compilation Error:")
-                print(result.stdout.decode('utf-8', errors='replace')[-1500:])
-                print(result.stderr.decode('utf-8', errors='replace')[-1500:])
-                print(f"{'='*60}\n")
-                
-                log_file = f"{pdf_path}.log"
-                if os.path.exists(log_file):
-                    log_content = self.safe_read_file(log_file)
-                    print("Log file (last 1000 chars):")
-                    print(log_content[-1000:])
-                
-                raise Exception("LaTeX compilation failed")
+                raise Exception("pdflatex not found. Make sure texlive-latex-base is installed in Dockerfile")
             
             pdf_output = f"{pdf_path}.pdf"
             if not os.path.exists(pdf_output):
-                raise Exception("PDF was not created")
+                raise Exception("PDF was not created despite successful compilation")
             
             print(f"✓ PDF created: {pdf_output}")
             return pdf_output
             
         except subprocess.TimeoutExpired:
-            raise Exception("LaTeX compilation timed out (try reducing content or increase timeout)")
+            raise Exception("LaTeX compilation timed out (120s limit exceeded)")
         except Exception as e:
             print(f"PDF generation error: {e}")
             import traceback
