@@ -179,11 +179,41 @@ Ready to solve! 🚀
             
         except Exception as e:
             logger.error(f"Error processing image: {e}")
+            
+            # Escape special characters for Telegram MarkdownV2
+            error_msg = str(e)
+            # Truncate if too long
+            if len(error_msg) > 150:
+                error_msg = error_msg[:150] + "..."
+            
+            # Escape special characters
+            error_msg_escaped = (error_msg
+                .replace('_', '\\_')
+                .replace('*', '\\*')
+                .replace('[', '\\[')
+                .replace(']', '\\]')
+                .replace('(', '\\(')
+                .replace(')', '\\)')
+                .replace('~', '\\~')
+                .replace('`', '\\`')
+                .replace('>', '\\>')
+                .replace('#', '\\#')
+                .replace('+', '\\+')
+                .replace('-', '\\-')
+                .replace('=', '\\=')
+                .replace('|', '\\|')
+                .replace('{', '\\{')
+                .replace('}', '\\}')
+                .replace('.', '\\.')
+                .replace('!', '\\!')
+            )
+            
             await update.message.reply_text(
-                "❌ **ERROR**\n\n"
-                f"Failed to process image: {str(e)}\n\n"
-                "Please try again with a clearer image.",
-                parse_mode='Markdown'
+                f"❌ *ERROR*\n\n"
+                f"Failed to process image\\.\n\n"
+                f"Error: {error_msg_escaped}\n\n"
+                f"Please try again with a clearer image\\.",
+                parse_mode='MarkdownV2'
             )
     
     async def handle_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
