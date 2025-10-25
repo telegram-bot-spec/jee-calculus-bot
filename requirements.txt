@@ -11,12 +11,14 @@ sympy==1.12
 matplotlib==3.8.2
 numpy==1.26.2
 
-# PDF Generation (LaTeX-based)
-pylatex==1.4.2
+# PDF Generation (LaTeX-based) - NO LONGER USED
+# pylatex==1.4.2  # REMOVED - We use LaTeX.Online API instead
 
 # Google Gemini AI
 google-generativeai==0.3.2
 
 # Utilities
 python-dotenv==1.0.0
+
+# HTTP Requests (for LaTeX.Online API)
 requests==2.31.0
